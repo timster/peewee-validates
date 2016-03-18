@@ -15,6 +15,10 @@ A simple and flexible model validator for `Peewee ORM <http://docs.peewee-orm.co
     :target: https://pypi.python.org/pypi/peewee-validates
     :alt: Version
 
+.. image:: http://img.shields.io/pypi/dm/peewee-validates.svg?style=flat-square
+    :target: https://pypi.python.org/pypi/peewee-validates
+    :alt: Downloads
+
 Requirements
 ============
 
@@ -34,7 +38,7 @@ Usage
 
 Here's a quick teaser of what you can do with peewee-moves:
 
-::
+.. code:: python
 
     import peewee
     from peewee_validates import ModelValidator
@@ -54,7 +58,7 @@ Here's a quick teaser of what you can do with peewee-moves:
 
 In fact, there is also a generic validator that does not even require a model:
 
-::
+.. code:: python
 
     from peewee_validates import Validator, Field
 
