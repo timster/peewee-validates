@@ -143,11 +143,11 @@ class PeeweeField(Field):
                 raise ValidationError('unique')
 
         # Validate foreign key reference (and return the instance).
-        # if isinstance(self.field, peewee.ForeignKeyField):
-        #     try:
-        #         return self.field.rel_model.get(self.field.to_field == value)
-        #     except self.field.rel_model.DoesNotExist:
-        #         raise ValidationError('related')
+        if isinstance(self.field, peewee.ForeignKeyField):
+            try:
+                return self.field.rel_model.get(self.field.to_field == value)
+            except self.field.rel_model.DoesNotExist:
+                raise ValidationError('related')
 
         return value
 
