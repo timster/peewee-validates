@@ -1,7 +1,7 @@
 Peewee Validates
 ################
 
-A simple and flexible model validator for `Peewee ORM <http://docs.peewee-orm.com/>`_.
+A simple and flexible model and data validator for `Peewee ORM <http://docs.peewee-orm.com/>`_.
 
 .. image:: http://img.shields.io/travis/timster/peewee-validates.svg?style=flat-square
     :target: http://travis-ci.org/timster/peewee-validates
