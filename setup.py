@@ -7,9 +7,13 @@ root_dir = path.abspath(path.dirname(__file__))
 with open(path.join(root_dir, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+with open(path.join(root_dir, 'requirements.txt'), encoding='utf-8') as f:
+    install_requires = list(map(str.strip, f.readlines()))
+
+
 setup(
     name='peewee-validates',
-    version='0.0.2',
+    version='0.0.3',
 
     description='Simple and flexible model validator for Peewee ORM.',
     long_description=long_description,
@@ -34,9 +38,9 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
 
-    keywords='peewee orm database migration development',
+    keywords='peewee orm database form validation development',
 
     py_modules=['peewee_validates'],
 
-    install_requires=['peewee>=2.8.0'],
+    install_requires=install_requires,
 )
