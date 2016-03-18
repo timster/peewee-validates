@@ -21,11 +21,12 @@ class ValidatorOptions:
         self.only = ()
         self.exclude = ()
         self.default_messages = {
-            'required': 'field is required',
-            'max_length': 'value is too long',
-            'unique': 'value must be unique',
-            'choices': 'value must be valid choice',
+            'required': 'is required',
+            'max_length': 'is too long',
+            'unique': 'must be unique',
+            'choices': 'must be valid choice',
             'related': 'could not find related value',
+            'index': 'fields must be unique together',
         }
         for kind in COERCED_FIELDS:
             self.default_messages['coerce_{}'.format(kind)] = 'value must be {}'.format(kind)
@@ -36,27 +37,30 @@ class ModelValidator:
     def __init__(self, instance=None):
         self.instance = instance
         self.errors = {}
-        self.data = {}
         self._valid = False
+
+        self.pk_value = self.instance._get_pk_value()
+        self.pk_field = self.instance._meta.primary_key
 
         # Set meta options. Maybe a better way to do this, but it works.
         self._meta = ValidatorOptions(self)
         self._meta.__dict__.update(self.Meta.__dict__)
 
+        # Check to make sure we have something to work with.
+        if not self.instance and not self._meta.model:
+            raise AttributeError('Must specify either an instance or Meta.model.')
+
+        # If we don't have an instance, create a default one based on the model.
+        if not self.instance:
+            self.instance = self._meta.model()
+
         # Default to using fields from the model.
         # But this can be overwritten by simply adding a field to this class!
         self._meta.fields = {}
-        if self._meta.model:
-            self._meta.fields = self._meta.model._meta.fields
-        if self.instance:
-            self._meta.fields = self.instance._meta.fields
+        self._meta.fields = self.instance._meta.fields
         for key, value in self.__class__.__dict__.items():
             if isinstance(value, peewee.Field):
                 self._meta.fields[key] = value
-
-        # If we don't have an instance, create a default one based on the model.
-        if not self.instance and self._meta.model:
-            self.instance = self._meta.model()
 
     class Meta:
         messages = {}
@@ -107,10 +111,8 @@ class ModelValidator:
         if getattr(field, 'unique', False) and self.instance:
             query = self.instance.select().where(field == value)
             # If we have an ID, need to exclude the current record from the check.
-            pk_value = self.instance._get_pk_value()
-            pk_field = self.instance._meta.primary_key
-            if pk_field and pk_value:
-                query = query.where(pk_field != pk_value)
+            if self.pk_field and self.pk_value:
+                query = query.where(self.pk_field != self.pk_value)
             if query.count():
                 raise ValidationError('unique')
 
@@ -145,12 +147,40 @@ class ModelValidator:
             return method(name, data)
         return data.get(name)
 
-    def validate(self, data, only=None, exclude=None):
+    def perform_index_validation(self):
+        """
+        Validate any unique indexes specified on the model.
+        This should happen after all the normal fields have been validated.
+        This can add error messages to multiple fields.
+        """
+        indexdata = []
+        for columns, unique in self.instance._meta.indexes:
+            if not unique:
+                continue
+            data = {}
+            for col in columns:
+                colkey = col[:-3] if col.endswith('_id') else col
+                data[colkey] = getattr(self.instance, col, None)
+                indexdata.append(data)
+
+        for index in indexdata:
+            query = self.instance.filter(**index)
+            # If we have an ID, need to exclude the current record from the check.
+            if self.pk_field and self.pk_value:
+                query = query.where(self.pk_field != self.pk_value)
+            if query.count():
+                for col in index.keys():
+                    self.add_error(col, 'index')
+
+    def validate(self, data=None, only=None, exclude=None):
         """
         Validate all fields and return a bool indicating validation success.
         Call teh default validators for each field, then call any custom validator hooks
         for each field.
         """
+        if not data:
+            data = {}
+
         for name, field in self._meta.fields.items():
             # If field is excluded or we have a list to only valudate, check it for this field.
             only = only or self._meta.only
@@ -163,8 +193,15 @@ class ModelValidator:
                 continue
 
             try:
-                # Get value from the input data.
-                value = self.get_data(name, data) or getattr(self.instance, name, '')
+                try:
+                    # Get value from the input data.
+                    # If there's no value in the input data, try and get it from the instance.
+                    # This could raise an exception if it's a foreign key.
+                    value = self.get_data(name, data)
+                    if value is None:
+                        value = getattr(self.instance, name, '')
+                except peewee.DoesNotExist:
+                    value = ''
                 # Run it through validation methods.
                 value = self.perform_field_validation(name, field, value)
                 # Run it through validation hook.
@@ -176,10 +213,10 @@ class ModelValidator:
                 self.add_error(name, exc.key)
                 continue
 
-            # Data is valid for this field, retain the value here and in the model.
-            self.data[name] = value
-            if self.instance:
-                setattr(self.instance, name, value)
+            # Data is valid for this field, retain the value in the model.
+            setattr(self.instance, name, value)
+
+        self.perform_index_validation()
 
         self._valid = (not len(self.errors))
         return self.valid
