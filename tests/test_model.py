@@ -10,7 +10,7 @@ class BaseModel(peewee.Model):
 
     class Meta:
         abstract = True
-        database = peewee.SqliteDatabase(':memory:')
+        database = database
 
 
 class IndexModel(BaseModel):
