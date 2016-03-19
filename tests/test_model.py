@@ -1,57 +1,9 @@
-import peewee
-
 from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
 
-database = peewee.SqliteDatabase(':memory:')
-
-
-class BaseModel(peewee.Model):
-
-    class Meta:
-        abstract = True
-        database = database
-
-
-class IndexModel(BaseModel):
-    field1 = peewee.CharField()
-    field2 = peewee.CharField()
-    field3 = peewee.CharField()
-
-    class Meta:
-        indexes = (
-            (('field1', 'field2'), True),
-            (('field3',), False),
-        )
-
-
-class Organization(BaseModel):
-    name = peewee.CharField(null=False)
-
-
-class Person(BaseModel):
-    name = peewee.CharField(null=False, max_length=5, unique=True)
-
-
-class ComplexPerson(Person):
-    GENDER_CHOICES = (('M', 'Male'), ('F', 'Female'))
-    gender = peewee.CharField(choices=GENDER_CHOICES)
-
-    organization = peewee.ForeignKeyField(Organization, null=True)
-
-    class Meta:
-        indexes = (
-            (('gender', 'name'), True),
-            (('name', 'organization'), False),
-        )
-
-Organization.create_table(fail_silently=True)
-ComplexPerson.create_table(fail_silently=True)
-Person.create_table(fail_silently=True)
-IndexModel.create_table(fail_silently=True)
-
-organization = Organization(name='main')
-organization.save()
+from tests.models import BasicFields
+from tests.models import ComplexPerson
+from tests.models import Person
 
 
 def test_required():
@@ -118,10 +70,10 @@ def test_unique():
 
 
 def test_unique_index():
-    obj = IndexModel(field1='one', field2='two', field3='three')
+    obj = BasicFields(field1='one', field2='two', field3='three')
     obj.save()
 
-    validator = ModelValidator(IndexModel(field1='one', field2='two', field3='three'))
+    validator = ModelValidator(BasicFields(field1='one', field2='two', field3='three'))
     validator.validate()
     assert validator.errors['field1'] == 'fields must be unique together'
     assert validator.errors['field2'] == 'fields must be unique together'
