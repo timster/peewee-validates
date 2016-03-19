@@ -31,12 +31,14 @@ Installation
 
 This package can be installed using pip:
 
+::
+
     pip install peewee-validates
 
 Usage
 =====
 
-Here's a quick teaser of what you can do with peewee-moves:
+Here's a quick teaser of what you can do with peewee-validates:
 
 .. code:: python
 
