@@ -13,6 +13,7 @@ COERCE_MAP = {
     'date': lambda v: dateutil_parse(v).date(),
     'time': lambda v: dateutil_parse(v).time(),
     'datetime': dateutil_parse,
+    'null': lambda v: v,
 }
 
 
