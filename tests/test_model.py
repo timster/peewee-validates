@@ -3,19 +3,34 @@ import peewee
 from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
 
+database = peewee.SqliteDatabase(':memory:')
 
-class Organization(peewee.Model):
+
+class BaseModel(peewee.Model):
+
+    class Meta:
+        abstract = True
+        database = peewee.SqliteDatabase(':memory:')
+
+
+class IndexModel(BaseModel):
+    field1 = peewee.CharField()
+    field2 = peewee.CharField()
+    field3 = peewee.CharField()
+
+    class Meta:
+        indexes = (
+            (('field1', 'field2'), True),
+            (('field3',), False),
+        )
+
+
+class Organization(BaseModel):
     name = peewee.CharField(null=False)
 
-    class Meta:
-        database = peewee.SqliteDatabase(':memory:')
 
-
-class Person(peewee.Model):
+class Person(BaseModel):
     name = peewee.CharField(null=False, max_length=5, unique=True)
-
-    class Meta:
-        database = peewee.SqliteDatabase(':memory:')
 
 
 class ComplexPerson(Person):
@@ -28,19 +43,6 @@ class ComplexPerson(Person):
         indexes = (
             (('gender', 'name'), True),
             (('name', 'organization'), False),
-        )
-
-
-class IndexModel(peewee.Model):
-    field1 = peewee.CharField()
-    field2 = peewee.CharField()
-    field3 = peewee.CharField()
-
-    class Meta:
-        database = peewee.SqliteDatabase(':memory:')
-        indexes = (
-            (('field1', 'field2'), True),
-            (('field3',), False),
         )
 
 Organization.create_table(fail_silently=True)
