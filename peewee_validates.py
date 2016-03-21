@@ -3,7 +3,6 @@ import decimal
 from dateutil.parser import parse as dateutil_parse
 import peewee
 
-
 COERCE_MAP = {
     'bool': bool,
     'decimal': decimal.Decimal,
@@ -27,6 +26,16 @@ class Field:
     def __init__(
             self, coerce,
             required=False, max_length=None, min_length=None, range=None, choices=None):
+        """
+        Initialize a validation field.
+
+        :param coerce: Method (or name of predefined method) to coerce value.
+        :param required: Boolean whether this field is required (default False).
+        :param max_length: Maximum length (default None).
+        :param min_length: Minimum length (default None).
+        :param range: Range of valid values for numbers (default None).
+        :param choices: List or tuple of valid choices (default None).
+        """
         self.coerce = coerce
         self.required = required
         self.max_length = max_length
@@ -41,17 +50,53 @@ class Field:
             self.coerce_func = COERCE_MAP.get(self.coerce, None)
 
     def get_choices(self):
+        """
+        Get the choices for this field. If it's a callable, return the result of calling it.
+
+        :return: List of choices for this field.
+        :rtype: iterable
+        """
         if callable(self.choices):
             return self.choices()
         return self.choices
 
     def get_value(self, name, data):
+        """
+        Get the value of this field from the data.
+        If there is a problem with the data, raise ValidationError.
+
+        :param name: Name of this field.
+        :param data: Dictionary of data for all fields.
+        :raises: ValidationError
+        :return: The value of this field.
+        :rtype: any
+        """
         return data.get(name)
 
     def clean(self, value, data):
+        """
+        Perform any data cleansing and return the cleaned value of this field.
+        If there is a problem with the data, raise ValidationError.
+
+        :param value: The value of this field before cleaning.
+        :param data: Dictionary of data for all fields.
+        :raises: ValidationError
+        :return: The value of this field.
+        :rtype: any
+        """
         return value
 
     def validate(self, name, data):
+        """
+        Validate the data in this field and return the validated, cleaned value.
+        If there is a problem with the data, raise ValidationError.
+
+        :param value: The value of this field before cleaning.
+        :param data: Dictionary of data for all fields.
+        :raises: ValidationError
+        :return: The value of this field.
+        :rtype: any
+        """
         value = self.get_value(name, data)
         # Check to see if the field is present (required).
         if self.required and value is None:
@@ -101,6 +146,12 @@ class PeeweeField(Field):
     }
 
     def __init__(self, instance, field):
+        """
+        Initialize a field based on a Peewee model's field.
+
+        :param instance: Peewee model instance.
+        :param field: Peewee field instance.
+        """
         self.instance = instance
         self.field = field
         self.pk_value = self.instance._get_pk_value()
@@ -126,12 +177,35 @@ class PeeweeField(Field):
         super().__init__(coerce, choices=choices, required=required, max_length=max_length)
 
     def get_value(self, name, data):
+        """
+        Get the value of this field from the data.
+        This tries to first get the value from the dictionary,
+        but if it doesn't exist there, get it from the instance.
+        If there is a problem with the data, raise ValidationError.
+
+        :param name: Name of this field.
+        :param data: Dictionary of data for all fields.
+        :raises: ValidationError
+        :return: The value of this field.
+        :rtype: any
+        """
         value = data.get(name)
         if value is None:
             value = getattr(self.instance, name, None)
         return value
 
     def clean(self, value, data):
+        """
+        Perform any data cleansing and return the cleaned value of this field.
+        If there is a problem with the data, raise ValidationError.
+        This method checks for any unique fields and any foreign key references.
+
+        :param value: The value of this field before cleaning.
+        :param data: Dictionary of data for all fields.
+        :raises: ValidationError
+        :return: The value of this field.
+        :rtype: any
+        """
         value = super().clean(value, data)
 
         # Validate that the field is unique.
@@ -173,11 +247,15 @@ class ValidatorOptions:
 
 
 class Validator:
-
     class Meta:
         messages = {}
 
     def __init__(self, default=None):
+        """
+        Initialize a validator instance.
+
+        :param default: Dictionary of default values to use if no data is passed to validate().
+        """
         self.data = {}
         self.default = default or {}
         self.errors = {}
@@ -189,7 +267,11 @@ class Validator:
         self.initialize_fields()
 
     def initialize_fields(self):
-        """Add any fields that are specified on this class."""
+        """
+        Add any fields that are specified on this class.
+
+        :return: None
+        """
         for key, value in self.__class__.__dict__.items():
             if isinstance(value, Field):
                 self._meta.fields[key] = value
@@ -199,6 +281,9 @@ class Validator:
         """
         Return bool representing data validity.
         Unvalidated data or invalid data returns False. Validated, valid data returns True.
+
+        :return: Whether the field is valid.
+        :rtype: bool
         """
         return self._validated and not self.errors
 
@@ -206,6 +291,8 @@ class Validator:
         """
         Add an error message for the given field and key.
         Key will use a lookup in the messages dict to figure out which message to add.
+
+        :return: None
         """
         msg = self._meta.messages.get('{}.{}'.format(field, key), self._meta.messages.get(key))
         if not msg:
@@ -213,9 +300,24 @@ class Validator:
         self.errors[field] = msg
 
     def clean(self):
+        """
+        Clean the data dictionary and return the cleaned values.
+
+        :return: Dictionary of "clean" values.
+        :rtype: dict
+        """
         return self.data
 
     def validate(self, data=None, only=None, exclude=None):
+        """
+        Validate the data for all fields and return whether the validation was successful.
+        This method also retains the data in `self.data` so that it can be accessed later.
+
+        :param data: Dictionary of data to validate.
+        :param only: List or tuple of fields to validate.
+        :param exclude: List or tuple of fields to exclude from validation.
+        :return: True if data is valid, otherwise False.
+        """
         self._validated = True
 
         self.errors = {}
@@ -261,13 +363,25 @@ class Validator:
 
 class ModelValidator(Validator):
     def __init__(self, instance, default=None):
+        """
+        Initialize a validator instance based on a Peewee model instance.
+
+        :param instance: Peewee model instance to use for data lookups.
+        :param default: Dictionary of default values to use if no data is passed to validate().
+        """
         self.instance = instance
         self.pk_value = self.instance._get_pk_value()
         self.pk_field = self.instance._meta.primary_key
         super().__init__(default=default)
 
     def initialize_fields(self):
-        """Auto create the fields from the instance, then call the super."""
+        """
+        Auto create the fields from the instance, then call the super.
+        This will use fields from the model instance, then override them with
+        any fields specified directly on this class.
+
+        :return: None
+        """
         for key, field in self.instance._meta.fields.items():
             if isinstance(field, peewee.PrimaryKeyField):
                 continue
@@ -275,17 +389,27 @@ class ModelValidator(Validator):
         super().initialize_fields()
 
     def clean(self):
-        """Set all the fields on the instance and run index validations."""
+        """
+        Clean the data dictionary and return the cleaned values.
+        This is just like the normal clean method except it will also perform index validations
+        and save the data to the Peewee instance.
+
+        :return: Dictionary of "clean" values.
+        :rtype: dict
+        """
         for key, value in self.data.items():
             setattr(self.instance, key, value)
+        data = super().clean()
         self.perform_index_validation()
-        return super().clean()
+        return data
 
     def perform_index_validation(self):
         """
         Validate any unique indexes specified on the model.
         This should happen after all the normal fields have been validated.
         This can add error messages to multiple fields.
+
+        :return: None
         """
         # Build a dict containing query values for each unique index.
         indexdata = []
