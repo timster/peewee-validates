@@ -364,6 +364,8 @@ in your custom class. Given the following model:
 
 This would generate a field for ``code`` with a required validator.
 
+.. code:: python
+
     class CategoryValidator(ModelValidator):
         code = Field(int, required=False)
 
