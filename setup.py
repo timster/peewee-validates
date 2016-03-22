@@ -13,7 +13,7 @@ with open(path.join(root_dir, 'requirements.txt'), encoding='utf-8') as f:
 
 setup(
     name='peewee-validates',
-    version='0.2.0',
+    version='0.2.1',
 
     description='Simple and flexible model validator for Peewee ORM.',
     long_description=long_description,
