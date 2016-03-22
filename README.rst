@@ -65,8 +65,8 @@ In fact, there is also a generic validator that does not even require a model:
     from peewee_validates import Validator, Field
 
     class SimpleValidator(Validator):
-        name = Field('str', required=True, max_length=250)
-        code = Field('str', required=True, max_length=4)
+        name = Field(str, required=True, max_length=250)
+        code = Field(str, required=True, max_length=4)
 
     validator = SimpleValidator(obj)
     validator.validate({'code': 'toolong'})
@@ -74,6 +74,8 @@ In fact, there is also a generic validator that does not even require a model:
     print(validator.errors)
 
     {'name': 'is required', 'code': 'too long'}
+
+Check out the `Usage documentation <USAGE.rst>`_ for more details.
 
 Todo
 ====
