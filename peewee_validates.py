@@ -23,11 +23,15 @@ def time(v):
     return dateutil_parse(v).time()
 
 
+def datetime(v):
+    return dateutil_parse(v)
+
+
 COERCE = {
     'decimal': decimal.Decimal,
     'date': date,
     'time': time,
-    'datetime': dateutil_parse,
+    'datetime': datetime,
     'null': lambda v: v,
     None: lambda v: v,
 }
