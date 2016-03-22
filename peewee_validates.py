@@ -191,7 +191,7 @@ class Field:
         :return: The value of this field.
         :rtype: any
         """
-        if self.coerce and value:
+        if self.coerce and value is not None:
             try:
                 return self.coerce(value)
             except:
@@ -234,6 +234,7 @@ class ValidatorOptions:
             'unique': 'must be a unique value',
             'related': 'unable to find related object',
             'index': 'fields must be unique together',
+            'coerce_foreign_key': 'must be a valid integer',
             'coerce_decimal': 'must be a valid decimal',
             'coerce_date': 'must be a valid date',
             'coerce_time': 'must be a valid time',
@@ -351,17 +352,16 @@ class Validator:
 
 
 def validate_unique(field, data):
-    if getattr(field.field, 'unique', False):
-        query = field.instance.select().where(field.field == field.value)
-        # If we have an ID, need to exclude the current record from the check.
-        if field.pk_field and field.pk_value:
-            query = query.where(field.pk_field != field.pk_value)
-        if query.count():
-            raise ValidationError('unique')
+    query = field.instance.select().where(field.field == field.value)
+    # If we have an ID, need to exclude the current record from the check.
+    if field.pk_field and field.pk_value:
+        query = query.where(field.pk_field != field.pk_value)
+    if query.count():
+        raise ValidationError('unique')
 
 
 def validate_related(field, data):
-    if (field.value or not field.field.null) and isinstance(field.field, peewee.ForeignKeyField):
+    if field.value is not None and isinstance(field.field, peewee.ForeignKeyField):
         try:
             return field.field.rel_model.get(field.field.to_field == field.value)
         except field.field.rel_model.DoesNotExist:
@@ -394,6 +394,12 @@ class PeeweeField(Field):
             msg = 'First argument to {} must be an instance of peewee.Model.'
             raise AttributeError(msg.format(self.__class__.__name__))
 
+        def foreign_key(value):
+            """If it's a model already, convert it to the value of the PK."""
+            if isinstance(value, peewee.Model):
+                return value._get_pk_value()
+            return int(value)
+
         self.instance = instance
         self.field = field
         self.pk_value = self.instance._get_pk_value()
@@ -402,21 +408,18 @@ class PeeweeField(Field):
         required = not field.null
         max_length = getattr(field, 'max_length', None)
         coerce = PeeweeField.DB_FIELD_MAP.get(field.get_db_field(), str)
+        validators = []
 
         choices = getattr(field, 'choices', ())
         if choices:
             choices = tuple(c[0] for c in choices)
 
-        def model_lookup(value):
-            """If it's a model already, convert it to the value of the PK."""
-            if isinstance(value, peewee.Model):
-                return value._get_pk_value()
-            return value
-
         if isinstance(field, peewee.ForeignKeyField):
-            coerce = model_lookup
+            coerce = foreign_key
+            validators.append(validate_related)
 
-        validators = [validate_unique, validate_related]
+        if getattr(field, 'unique', False):
+            validators.append(validate_unique)
 
         super().__init__(
             coerce=coerce, required=required, max_length=max_length, validators=validators,
@@ -435,7 +438,7 @@ class PeeweeField(Field):
         :rtype: any
         """
         if self.name in data:
-            return data.get(self.name)
+            return data.get(self.name, '')
 
         try:
             return getattr(self.instance, self.name, None)
