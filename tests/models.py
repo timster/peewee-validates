@@ -4,8 +4,12 @@ import peewee
 database = peewee.SqliteDatabase(':memory:')
 
 
+def getname():
+    return 'Tim'
+
+
 class BasicFields(peewee.Model):
-    field1 = peewee.CharField()
+    field1 = peewee.CharField(default=getname)
     field2 = peewee.CharField()
     field3 = peewee.CharField()
 

@@ -1,59 +1,97 @@
+import pytest
+
+import peewee
+
+from peewee_validates import PeeweeField
 from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
 
 from tests.models import BasicFields
 from tests.models import ComplexPerson
+from tests.models import Organization
 from tests.models import Person
+
+
+def test_not_instance():
+    with pytest.raises(AttributeError):
+        ModelValidator(Person)
+
+    with pytest.raises(AttributeError):
+        PeeweeField(Person, peewee.CharField())
+
+
+def assert_instance_works():
+    validator = ModelValidator(Person())
+    rv = validator.validate({'name': 'timster'})
+    assert not rv.errors
+    assert isinstance(rv.data, Person)
+    assert rv.data.name == 'timster'
 
 
 def test_required():
     validator = ModelValidator(Person())
-    validator.validate()
-    assert validator.errors['name'] == 'required'
+    rv = validator.validate()
+    assert rv.errors['name'] == 'required field'
 
 
 def test_clean():
     class TestValidator(ModelValidator):
-        def clean(self):
-            super().clean()
-            self.data['name'] += 'awesome'
-            return self.data
+        def clean(self, data):
+            super().clean(data)
+            data['name'] += 'awesome'
+            return data
 
     validator = TestValidator(Person())
-    validator.validate({'name': 'tim'})
-    assert validator.data['name'] == 'timawesome'
-    assert not validator.errors
+    rv = validator.validate({'name': 'tim'})
+    assert rv.data['name'] == 'timawesome'
+    assert not rv.errors
 
 
 def test_clean_error():
     class TestValidator(ModelValidator):
-        def clean(self):
+        def clean(self, data):
             raise ValidationError('required')
 
     validator = TestValidator(Person())
-    validator.validate({'name': 'tim'})
-    assert validator.data['name'] == 'tim'
-    assert validator.errors['__base__'] == 'required'
+    rv = validator.validate({'name': 'tim'})
+    assert rv.data['name'] == 'tim'
+    assert rv.errors['__base__'] == 'required field'
 
 
 def test_choices():
     validator = ModelValidator(ComplexPerson(name='tim'))
 
-    validator.validate({'organization': 1, 'gender': 'S'})
-    assert validator.errors['gender'] == 'invalid choice'
-    assert 'name' not in validator.errors
+    rv = validator.validate({'organization': 1, 'gender': 'S'})
+    assert rv.errors['gender'] == 'must be one of the choices: M, F'
+    assert 'name' not in rv.errors
 
-    validator.validate({'organization': 1, 'gender': 'M'})
-    validator.validate({'gender': 'M'})
-    assert not validator.errors
+    rv = validator.validate({'organization': 1, 'gender': 'M'})
+    rv = validator.validate({'gender': 'M'})
+    assert not rv.errors
 
 
-def test_missing_relation():
-    validator = ModelValidator(ComplexPerson(name='tim'))
+def test_default():
+    validator = ModelValidator(BasicFields())
+    rv = validator.validate()
 
-    validator.validate()
-    assert validator.errors['gender'] == 'required'
-    assert 'name' not in validator.errors
+    assert rv.data['field1'] == 'Tim'
+    assert rv.errors['field2'] == 'required field'
+    assert rv.errors['field3'] == 'required field'
+
+
+def test_missing_related():
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
+
+    rv = validator.validate({'organization': 999})
+    assert rv.errors['organization'] == 'unable to find related object'
+
+
+def test_working_related():
+    org = Organization.get(id=1)
+    validator = ModelValidator(ComplexPerson(organization=1, name='tim', gender='M'))
+
+    rv = validator.validate()
+    assert rv.data.organization == org
 
 
 def test_unique():
@@ -61,12 +99,12 @@ def test_unique():
     person.save()
 
     validator = ModelValidator(Person(name='tim'))
-    validator.validate({'gender': 'M'})
-    assert validator.errors['name'] == 'must be unique'
+    rv = validator.validate({'gender': 'M'})
+    assert rv.errors['name'] == 'must be a unique value'
 
     validator = ModelValidator(person)
-    validator.validate({'gender': 'M'})
-    assert not validator.errors
+    rv = validator.validate({'gender': 'M'})
+    assert not rv.errors
 
 
 def test_unique_index():
@@ -74,10 +112,10 @@ def test_unique_index():
     obj.save()
 
     validator = ModelValidator(BasicFields(field1='one', field2='two', field3='three'))
-    validator.validate()
-    assert validator.errors['field1'] == 'fields must be unique together'
-    assert validator.errors['field2'] == 'fields must be unique together'
+    rv = validator.validate()
+    assert rv.errors['field1'] == 'fields must be unique together'
+    assert rv.errors['field2'] == 'fields must be unique together'
 
     validator = ModelValidator(obj)
-    validator.validate()
-    assert not validator.errors
+    rv = validator.validate()
+    assert not rv.errors
