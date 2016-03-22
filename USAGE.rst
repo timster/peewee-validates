@@ -31,7 +31,7 @@ validate. The result we get back is an object with ``data`` and ``errors`` attri
     rv = validator.validate(data)
     print(rv)
 
-    Result(data={}, errors={'first_name': 'required field'})
+    # Result(data={}, errors={'first_name': 'required field'})
 
 Both ``data`` and ``errors`` are plain ``dict`` instances. In this case we can see that
 there was one error for ``first_name``. That's because we gave it the ``required()`` validator
@@ -45,7 +45,7 @@ When we pass good data, the validation passes and the output data is populated:
     rv = validator.validate(data)
     print(rv)
 
-    Result(data={'first_name': 'Tim'}, errors={})
+    # Result(data={'first_name': 'Tim'}, errors={})
 
 The data dictionary will contain the values after any validators, type coersions, and
 any other custom modifiers.
@@ -74,7 +74,7 @@ to show you an example.
     rv = SimpleValidator().validate({'code': 'text'})
     print(rv)
 
-    Result(data={}, errors={'code': 'invalid: coerce_coerce_int'})
+    # Result(data={}, errors={'code': 'invalid: coerce_coerce_int'})
 
 That error message isn't very pretty, but I will show you later how to change that.
 
@@ -89,7 +89,7 @@ These use python-dateutils to try to coerce text to a date instance.
     rv = SimpleValidator().validate({'birthday': '22 jan 1980'})
     print(rv)
 
-    Result(data={'birthday': datetime.date(1980, 1, 22)}, errors={})
+    # Result(data={'birthday': datetime.date(1980, 1, 22)}, errors={})
 
 Field Validators
 ================
@@ -113,7 +113,7 @@ like this:
     rv = SimpleValidator().validate(data)
     print(rv)
 
-    Result(data={}, errors={'name': 'invalid: not_tim'})
+    # Result(data={}, errors={'name': 'invalid: not_tim'})
 
 Now let's say you want to implement a validator that checks the length of the field.
 The length should be configurable. So we can implement a validator that accepts a parameter
@@ -135,7 +135,7 @@ another function. That looks like this:
     rv = SimpleValidator().validate(data)
     print(rv)
 
-    Result(data={}, errors={'name': 'invalid: too_long'})
+    # Result(data={}, errors={'name': 'invalid: too_long'})
 
 Available Validators
 --------------------
@@ -286,7 +286,7 @@ a dictionary to ``validates`` that will override any data on the instance.
 
     rv = ModelValidator(obj).validate(data)
 
-    Result(data={}, errors={'code': 'must be a number'})
+    # Result(data={}, errors={'code': 'must be a number'})
 
 This fails validation because the data passed in was not a number, even though the data on the
 instance was valid.
@@ -316,7 +316,8 @@ It's the same instance we passed to ModelValidator, just mutated.
 
     rv = ModelValidator(obj).validate(data)
     print(rv)
-    Result(data=<models.Category object at 0x10ff825f8>, errors={})
+
+    # Result(data=<models.Category object at 0x10ff825f8>, errors={})
 
 Field Validations
 -----------------
