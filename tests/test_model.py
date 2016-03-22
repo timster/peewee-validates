@@ -85,6 +85,20 @@ def test_missing_related():
     rv = validator.validate({'organization': 999})
     assert rv.errors['organization'] == 'unable to find related object'
 
+    rv = validator.validate()
+    assert rv.errors['organization'] == 'required field'
+
+
+def test_missing_related_callable_default():
+    def getorg():
+        return 99
+
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
+    validator._meta.fields['organization'].default = getorg
+
+    rv = validator.validate()
+    assert rv.errors['organization'] == 'unable to find related object'
+
 
 def test_working_related():
     org = Organization.get(id=1)

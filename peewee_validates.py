@@ -437,7 +437,15 @@ class PeeweeField(Field):
         if self.name in data:
             return data.get(self.name)
 
-        return getattr(self.instance, self.name, None)
+        try:
+            return getattr(self.instance, self.name, None)
+        except peewee.DoesNotExist:
+            pass
+
+        if callable(self.default):
+            return self.default()
+
+        return self.default
 
 
 class ModelValidator(Validator):
