@@ -91,11 +91,11 @@ These use python-dateutils to try to coerce text to a date instance.
 
     Result(data={'birthday': datetime.date(1980, 1, 22)}, errors={})
 
-Validators
-==========
+Field Validators
+================
 
-A validator is just a method with the signature ``validator(field, data)`` where field is a
-``Field`` instance and ``data`` is the data dict that is passed to ``validate()``.
+A field validator is just a method with the signature ``validator(field, data)`` where
+field is a ``Field`` instance and ``data`` is the data dict that is passed to ``validate()``.
 
 If we want to implement a validator that makes sure the name is always "tim" we could do it
 like this:
