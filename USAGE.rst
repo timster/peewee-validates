@@ -325,18 +325,18 @@ Field Validations
 Using the ModelValidator provides a couple extra goodies that are not found in the standard
 Validator class.
 
-*Unique*
+**Unique**
 
 If the Peewee field was defined with ``unique=True`` then a validator will be added to the
 field that will look up the value in the database to make sure it's unique. This is smart enough
 to know to exclude the current instance if it has already been saved to the database.
 
-*Foreign Key*
+**Foreign Key**
 
 If the Peewee field is a ``ForeignKeyField`` then a validator will be added to the field
 that will look up the value in the related table to make sure it's valid.
 
-*Index Validation*
+**Index Validation**
 
 If you have defined unique indexes on the model like the example below, they will also
 be validated (after all the other field level validations have succeeded).
