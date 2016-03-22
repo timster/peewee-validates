@@ -106,7 +106,6 @@ like this:
         if field.value and field.value != 'tim':
             raise ValidationError('not_tim')
 
-
     class SimpleValidator(Validator):
         name = Field(str, validators=[always_tim])
 
@@ -153,7 +152,7 @@ There are a bunch of built-in validators that can be accessed by importing
 * ``range(low, high)`` - validate that value is between ``low`` and ``high``
 * ``equal(value)`` - validate that value is equal to ``value``
 * ``regexp(pattern, flags=0)`` - validate that value matches ``patten``
-* ``function(method, \*\*kwargs)`` - runs ``method`` with field value as first argument and ``kwargs``. Validates that the result is Truthy
+* ``function(method, **kwargs)`` - runs ``method`` with field value as first argument and ``kwargs``. Validates that the result is Truthy
 
 Field API
 =========
@@ -371,3 +370,79 @@ This would generate a field for ``code`` with a required validator.
     validator = CategoryValidator(category).validate()
 
 Now ``code`` will not be required when the call to ``validate`` happens.
+
+Overriding Behaviors
+====================
+
+Cleaning
+--------
+
+Once all field-level data has been validated during ``validate()``, the resulting data is
+passed to the ``clean()`` method before being returned in the result. You can override this
+method to perform any validations you like, or mutate the data before returning it.
+
+.. code:: python
+
+    class MyValidator(Validator):
+        name1 = Field(str)
+        name2 = Field(str)
+
+        def clean(self, data):
+            # make sure name1 is the same as name2
+            if data['name1'] != data['name2']:
+                raise ValidationError('name_different')
+            # and if they are the same, uppercase them
+            data['name1'] = data['name1'].upper()
+            data['name2'] = data['name2'].upper()
+            return data
+
+        class Meta:
+            messages = {
+                'name_different': 'the names should be the same'
+            }
+
+Adding Fields Dynamically
+-------------------------
+
+If you need to, you can dynamically add a field to a validator instance.
+They are stored in the ``_meta.fields`` dict, which you can manipulate as much as you want.
+
+.. code:: python
+
+    validator = MyValidator()
+    validator._meta.fields['newfield'] = Field(int, required=True)
+
+Custom Fields
+-------------
+
+Adding a custom field is as simple as subclassing ``Field`` and overriding the methods
+you need to:
+
+.. code:: python
+
+    class NameField(Field):
+
+        def get_value(self, data):
+            """
+            Get the raw value from the data dict.
+            By default this does the following:
+            """
+            if self.name in data:
+                return data.get(self.name)
+            if callable(self.default):
+                return self.default()
+            return self.default
+
+        def to_python(self, value):
+            """
+            Coerce the value from raw value to python value.
+            By default this is where the coerce method is called.
+            """
+            try:
+                value = str(value)
+            except:
+                raise ValidationError('str')
+            return value.lower()
+
+    class MyValidator(Validator):
+        name1 = NameField(str)
