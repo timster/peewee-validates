@@ -56,7 +56,7 @@ Here's a quick teaser of what you can do with peewee-validates:
 
     print(validator.errors)
 
-    # {'name': 'is required', 'code': 'must be unique'}
+    # {'name': 'required field', 'code': 'must be unique'}
 
 In fact, there is also a generic validator that does not even require a model:
 
@@ -73,7 +73,7 @@ In fact, there is also a generic validator that does not even require a model:
 
     print(validator.errors)
 
-    # {'name': 'is required', 'code': 'too long'}
+    # {'name': 'required field', 'code': 'must be at most 5 characters'}
 
 Check out the `Usage documentation <USAGE.rst>`_ for more details.
 

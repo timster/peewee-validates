@@ -5,7 +5,7 @@ import re
 from dateutil.parser import parse as dateutil_parse
 import peewee
 
-__all__ = ['ValidationError', 'Field', 'PeeweeField', 'Validator', 'ModelValidator', 'validates']
+__all__ = ['ValidationError', 'Field', 'PeeweeField', 'Validator', 'ModelValidator']
 
 
 class ValidationError(Exception):
@@ -36,107 +36,140 @@ COERCE = {
     None: lambda v: v,
 }
 
-Result = namedtuple('Result', ['data', 'errors'])
+Result = namedtuple('Result', ('data', 'errors'))
 
 
-class Validators:
+def validate_required():
+    def required_validator(field, data):
+        print('checking', field.name, 'with', data, 'and', field.value)
+        if not field.value:
+            raise ValidationError('required')
+    return required_validator
 
-    @staticmethod
-    def required():
-        def validator(field, data):
-            if not field.value:
-                raise ValidationError('required')
-        return validator
 
-    @staticmethod
-    def max_length(value):
-        def validator(field, data):
-            if field.value and len(field.value) > value:
-                raise ValidationError('max_length', length=value)
-        return validator
+def validate_max_length(value):
+    def max_length_validator(field, data):
+        if field.value and len(field.value) > value:
+            raise ValidationError('max_length', length=value)
+    return max_length_validator
 
-    @staticmethod
-    def min_length(value):
-        def validator(field, data):
-            if field.value and len(field.value) < value:
-                raise ValidationError('min_length', length=value)
-        return validator
 
-    @staticmethod
-    def length(value):
-        def validator(field, data):
-            if field.value and len(field.value) != value:
-                raise ValidationError('length', length=value)
-        return validator
+def validate_min_length(value):
+    def min_length_validator(field, data):
+        if field.value and len(field.value) < value:
+            raise ValidationError('min_length', length=value)
+    return min_length_validator
 
-    @staticmethod
-    def choices(values):
-        def validator(field, data):
-            options = values
-            if callable(options):
-                options = options()
-            if field.value not in options:
-                raise ValidationError('choices', choices=str.join(', ', options))
-        return validator
 
-    @staticmethod
-    def exclude(values):
-        def validator(field, data):
-            options = values
-            if callable(options):
-                options = options()
-            if field.value in options:
-                raise ValidationError('exclude', choices=str.join(', ', options))
-        return validator
+def validate_length(value):
+    def length_validator(field, data):
+        if field.value and len(field.value) != value:
+            raise ValidationError('length', length=value)
+    return length_validator
 
-    @staticmethod
-    def range(low, high):
-        def validator(field, data):
-            if field.value and not low < field.value < high:
-                raise ValidationError('range', low=low, high=high)
-        return validator
 
-    @staticmethod
-    def equal(other):
-        def validator(field, data):
-            if field.value and field.value != other:
-                raise ValidationError('equal', other=other)
-        return validator
+def validate_choices(values):
+    def choices_validator(field, data):
+        options = values
+        if callable(options):
+            options = options()
+        if field.value not in options:
+            raise ValidationError('choices', choices=str.join(', ', options))
+    return choices_validator
 
-    @staticmethod
-    def regexp(pattern, flags=0):
-        regex = re.compile(pattern, flags) if isinstance(pattern, str) else pattern
 
-        def validator(field, data):
-            if field.value and regex.match(str(field.value)) is None:
-                raise ValidationError('regexp', pattern=pattern)
-        return validator
+def validate_exclude(values):
+    def exclude_validator(field, data):
+        options = values
+        if callable(options):
+            options = options()
+        if field.value in options:
+            raise ValidationError('exclude', choices=str.join(', ', options))
+    return exclude_validator
 
-    @staticmethod
-    def function(method, **kwargs):
-        def validator(field, data):
-            if not method(field.value, **kwargs):
-                raise ValidationError('function', function=method.__name__)
-        return validator
 
-validates = Validators
+def validate_range(low, high):
+    def range_validator(field, data):
+        if field.value and not low < field.value < high:
+            raise ValidationError('range', low=low, high=high)
+    return range_validator
+
+
+def validate_equal(other):
+    def equal_validator(field, data):
+        if field.value and field.value != other:
+            raise ValidationError('equal', other=other)
+    return equal_validator
+
+
+def validate_regexp(pattern, flags=0):
+    regex = re.compile(pattern, flags) if isinstance(pattern, str) else pattern
+
+    def regexp_validator(field, data):
+        if field.value and regex.match(str(field.value)) is None:
+            raise ValidationError('regexp', pattern=pattern)
+    return regexp_validator
+
+
+def validate_function(method, **kwargs):
+    def function_validator(field, data):
+        if not method(field.value, **kwargs):
+            raise ValidationError('function', function=method.__name__)
+    return function_validator
+
+
+def validate_email():
+    user_regex = re.compile(
+        r"(^[-!#$%&'*+/=?^`{}|~\w]+(\.[-!#$%&'*+/=?^`{}|~\w]+)*$"
+        r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]'
+        r'|\\[\001-\011\013\014\016-\177])*"$)', re.IGNORECASE | re.UNICODE)
+
+    domain_regex = re.compile(
+        # domain
+        r'(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+'
+        r'(?:[A-Z]{2,6}|[A-Z0-9-]{2,})$'
+        r'|^\[(25[0-5]|2[0-4]\d|[0-1]?\d?\d)'
+        r'(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\]$', re.IGNORECASE | re.UNICODE)
+
+    domain_whitelist = ('localhost',)
+
+    def email_validator(field, data):
+        if field.value and '@' not in field.value:
+            raise ValidationError('email')
+
+        user_part, domain_part = field.value.rsplit('@', 1)
+
+        if not user_regex.match(user_part):
+            raise ValidationError('email')
+
+        if domain_part in domain_whitelist:
+            return
+
+        if not domain_regex.match(domain_part):
+            try:
+                domain_part = domain_part.encode('idna').decode('ascii')
+            except UnicodeError:
+                pass
+            if not domain_regex.match(domain_part):
+                raise ValidationError('email')
+
+    return email_validator
 
 
 class Field:
 
-    def __init__(
-            self, coerce=None, default=None, required=False, max_length=None, min_length=None,
-            choices=None, range=None, validators=None):
+    def __init__(self, coerce=None, default=None, required=False, max_length=None, min_length=None,
+                 choices=None, range=None, validators=None):
         """
         Initialize a field, mostly used for validation and coersion purposes.
 
         :param coerce: Method (or name of predefined method) to coerce value.
         :param default: Default value to use if none is provided.
-        :param required: Shortcut to add Validators.required() validator.
-        :param max_length: Shortcut to add Validators.max_length() validator.
-        :param min_length: Shortcut to add Validators.min_length() validator.
-        :param choices: Shortcut to add Validators.choices() validator.
-        :param range: Shortcut to add Validators.range() validator.
+        :param required: Shortcut to add validate_required() validator.
+        :param max_length: Shortcut to add validate_max_length() validator.
+        :param min_length: Shortcut to add validate_min_length() validator.
+        :param choices: Shortcut to add validate_choices() validator.
+        :param range: Shortcut to add validate_range() validator.
         :param validators: List or tuple of validators to run.
         """
         self.name = None
@@ -146,19 +179,19 @@ class Field:
         self.validators = []
 
         if required:
-            self.validators.append(Validators.required())
+            self.validators.append(validate_required())
 
         if max_length:
-            self.validators.append(Validators.max_length(int(max_length)))
+            self.validators.append(validate_max_length(int(max_length)))
 
         if min_length:
-            self.validators.append(Validators.min_length(int(min_length)))
+            self.validators.append(validate_min_length(int(min_length)))
 
         if choices:
-            self.validators.append(Validators.choices(choices))
+            self.validators.append(validate_choices(choices))
 
         if range:
-            self.validators.append(Validators.range(range[0], range[1]))
+            self.validators.append(validate_range(range[0], range[1]))
 
         if validators:
             self.validators.extend(validators)
@@ -220,21 +253,22 @@ class ValidatorOptions:
         self.fields = {}
         self.only = ()
         self.exclude = ()
+        self.messages = {}
         self.default_messages = {
             'required': 'required field',
             'choices': 'must be one of the choices: {choices}',
             'exclude': 'must not be one of the choices: {choices}',
             'range': 'must be in the range {low} to {high}',
-            'max_length': 'must be less than {length} characters',
+            'max_length': 'must be at most {length} characters',
             'min_length': 'must be at least {length} characters',
             'length': 'must be exactly {length} characters',
             'equal': 'must be equal to {other}',
             'regexp': 'must match the pattern {pattern}',
+            'email': 'must be a valid email address',
             'function': 'failed validation for {function}',
             'unique': 'must be a unique value',
             'related': 'unable to find related object',
             'index': 'fields must be unique together',
-            'coerce_foreign_key': 'must be a valid integer',
             'coerce_decimal': 'must be a valid decimal',
             'coerce_date': 'must be a valid date',
             'coerce_time': 'must be a valid time',
@@ -248,7 +282,7 @@ class ValidatorOptions:
 
 class Validator:
     class Meta:
-        messages = {}
+        pass
 
     def __init__(self):
         """
@@ -348,16 +382,18 @@ class Validator:
             except ValidationError as exc:
                 self.add_error(exc, '__base__')
 
-        return Result(self.data, self.errors)
+        # return Result(self.data, self.errors)
+        return (not self.errors)
 
 
 def validate_unique(field, data):
-    query = field.instance.select().where(field.field == field.value)
-    # If we have an ID, need to exclude the current record from the check.
-    if field.pk_field and field.pk_value:
-        query = query.where(field.pk_field != field.pk_value)
-    if query.count():
-        raise ValidationError('unique')
+    if getattr(field.field, 'unique', False):
+        query = field.instance.select().where(field.field == field.value)
+        # If we have an ID, need to exclude the current record from the check.
+        if field.pk_field and field.pk_value:
+            query = query.where(field.pk_field != field.pk_value)
+        if query.count():
+            raise ValidationError('unique')
 
 
 def validate_related(field, data):
@@ -394,12 +430,6 @@ class PeeweeField(Field):
             msg = 'First argument to {} must be an instance of peewee.Model.'
             raise AttributeError(msg.format(self.__class__.__name__))
 
-        def foreign_key(value):
-            """If it's a model already, convert it to the value of the PK."""
-            if isinstance(value, peewee.Model):
-                return value._get_pk_value()
-            return int(value)
-
         self.instance = instance
         self.field = field
         self.pk_value = self.instance._get_pk_value()
@@ -408,18 +438,21 @@ class PeeweeField(Field):
         required = not field.null
         max_length = getattr(field, 'max_length', None)
         coerce = PeeweeField.DB_FIELD_MAP.get(field.get_db_field(), str)
-        validators = []
 
         choices = getattr(field, 'choices', ())
         if choices:
             choices = tuple(c[0] for c in choices)
 
-        if isinstance(field, peewee.ForeignKeyField):
-            coerce = foreign_key
-            validators.append(validate_related)
+        def model_lookup(value):
+            """If it's a model already, convert it to the value of the PK."""
+            if isinstance(value, peewee.Model):
+                return value._get_pk_value()
+            return value
 
-        if getattr(field, 'unique', False):
-            validators.append(validate_unique)
+        if isinstance(field, peewee.ForeignKeyField):
+            coerce = model_lookup
+
+        validators = [validate_unique, validate_related]
 
         super().__init__(
             coerce=coerce, required=required, max_length=max_length, validators=validators,

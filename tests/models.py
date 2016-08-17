@@ -39,7 +39,7 @@ class ComplexPerson(Person):
     GENDER_CHOICES = (('M', 'Male'), ('F', 'Female'))
     gender = peewee.CharField(choices=GENDER_CHOICES)
 
-    organization = peewee.ForeignKeyField(Organization)
+    organization = peewee.ForeignKeyField(Organization, null=False)
 
     class Meta:
         database = database

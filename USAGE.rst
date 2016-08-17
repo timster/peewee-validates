@@ -10,10 +10,10 @@ The very basic usage is a validator that looks like this:
 
 .. code:: python
 
-    from peewee_validates import Validator, Field, validates
+    from peewee_validates import Validator, Field, validate_required
 
     class SimpleValidator(Validator):
-        first_name = Field(str, validators=[validates.required()])
+        first_name = Field(str, validators=[validate_required()])
 
     validator = SimpleValidator()
 
@@ -23,19 +23,23 @@ Each field has an associated data type (or coersion). In this case, the field wi
 coerced to ``str``. Each field also has a list of data validators. That's about it.
 
 When we call the ``validate()`` method on our validator, we pass the data that we want to
-validate. The result we get back is an object with ``data`` and ``errors`` attributes.
+validate. The result we get back is a bool indicating whether all validations passed.
+The validator then has two dicts: ``data`` and ``errors`` that you can check out to see what happened.
 
 .. code:: python
 
     data = {'first_name': ''}
-    rv = validator.validate(data)
-    print(rv)
+    validator.validate(data)
 
-    # Result(data={}, errors={'first_name': 'required field'})
+    print(validator.data)
+    print(validator.errors)
+
+    # data = {}
+    # errors = {'first_name': 'required field'}
 
 Both ``data`` and ``errors`` are plain ``dict`` instances. In this case we can see that
-there was one error for ``first_name``. That's because we gave it the ``required()`` validator
-but did not pass any data for that field.
+there was one error for ``first_name``. That's because we gave it the ``validate_required()``
+validator but did not pass any data for that field.
 
 When we pass good data, the validation passes and the output data is populated:
 
@@ -43,9 +47,12 @@ When we pass good data, the validation passes and the output data is populated:
 
     data = {'first_name': 'Tim'}
     rv = validator.validate(data)
-    print(rv)
 
-    # Result(data={'first_name': 'Tim'}, errors={})
+    print(validator.data)
+    print(validator.errors)
+
+    # data = {'first_name': 'Tim'}
+    # errors = {}
 
 The data dictionary will contain the values after any validators, type coersions, and
 any other custom modifiers.
@@ -71,10 +78,14 @@ to show you an example.
     class SimpleValidator(Validator):
         code = Field(coerce_int)
 
-    rv = SimpleValidator().validate({'code': 'text'})
-    print(rv)
+    validator = SimpleValidator()
+    validator.validate({'code': 'text'})
 
-    # Result(data={}, errors={'code': 'invalid: coerce_coerce_int'})
+    print(validator.data)
+    print(validator.errors)
+
+    # data = {}
+    # errors = {'code': 'invalid: coerce_coerce_int'}
 
 That error message isn't very pretty, but I will show you later how to change that.
 
@@ -86,10 +97,12 @@ These use python-dateutils to try to coerce text to a date instance.
     class SimpleValidator(Validator):
         birthday = Field('date')
 
-    rv = SimpleValidator().validate({'birthday': '22 jan 1980'})
-    print(rv)
+    validator = SimpleValidator()
+    validator.validate({'birthday': '22 jan 1980'})
 
-    # Result(data={'birthday': datetime.date(1980, 1, 22)}, errors={})
+    print(validator.data)
+
+    # data = {'birthday': datetime.date(1980, 1, 22)}
 
 Field Validators
 ================
@@ -109,11 +122,12 @@ like this:
     class SimpleValidator(Validator):
         name = Field(str, validators=[always_tim])
 
-    data = {'name': 'bob'}
-    rv = SimpleValidator().validate(data)
-    print(rv)
+    validator = SimpleValidator()
+    validator.validate({'name': 'bob'})
 
-    # Result(data={}, errors={'name': 'invalid: not_tim'})
+    print(validator.errors)
+
+    # errors = {'name': 'invalid: not_tim'}
 
 Now let's say you want to implement a validator that checks the length of the field.
 The length should be configurable. So we can implement a validator that accepts a parameter
@@ -131,28 +145,29 @@ another function. That looks like this:
     class SimpleValidator(Validator):
         name = Field(str, validators=[length(2)])
 
-    data = {'name': 'bob'}
-    rv = SimpleValidator().validate(data)
-    print(rv)
+    validator = SimpleValidator()
+    validator.validate({'name': 'bob'})
 
-    # Result(data={}, errors={'name': 'invalid: too_long'})
+    print(validator.errors)
+
+    # errors = {'name': 'invalid: too_long'}
 
 Available Validators
 --------------------
 
-There are a bunch of built-in validators that can be accessed by importing
-``peewee_validates.validates``.
+There are a bunch of built-in validators that can be accessed by importing from ``peewee_validates``.
 
-* ``required()`` - validate that data is entered
-* ``max_length(value)`` - validate that length is less than ``value``
-* ``min_length(value)`` - validate that length is at least ``value``
-* ``length(value)`` - validate that length is exactly ``value``
-* ``choices(values)`` - validate that value is in ``values``. ``values`` can also be a callable that returns values when called
-* ``exclude(values)`` - validate that value is not in ``values``. ``values`` can also be a callable that returns values when called
-* ``range(low, high)`` - validate that value is between ``low`` and ``high``
-* ``equal(value)`` - validate that value is equal to ``value``
-* ``regexp(pattern, flags=0)`` - validate that value matches ``patten``
-* ``function(method, **kwargs)`` - runs ``method`` with field value as first argument and ``kwargs``. Validates that the result is Truthy
+* ``validate_choices(values)`` - validate that value is in ``values``. ``values`` can also be a callable that returns values when called
+* ``validate_email()`` - validate that data is an email address
+* ``validate_equal(value)`` - validate that value is equal to ``value``
+* ``validate_exclude(values)`` - validate that value is not in ``values``. ``values`` can also be a callable that returns values when called
+* ``validate_function(method, **kwargs)`` - runs ``method`` with field value as first argument and ``kwargs``. Validates that the result is Truthy
+* ``validate_length(value)`` - validate that length is exactly ``value``
+* ``validate_max_length(value)`` - validate that length is less than ``value``
+* ``validate_min_length(value)`` - validate that length is at least ``value``
+* ``validate_range(low, high)`` - validate that value is between ``low`` and ``high``
+* ``validate_regexp(pattern, flags=0)`` - validate that value matches ``patten``
+* ``validate_required()`` - validate that data is entered
 
 Field API
 =========
@@ -176,7 +191,7 @@ are functionally identical:
 
     name = Field(str, required=True, max_length=200)
 
-    name = Field(str, validators=[validates.required(), validates.max_length(200)])
+    name = Field(str, validators=[validate_required(), validate_max_length(200)])
 
 Custom Error Messages
 =====================
@@ -284,9 +299,12 @@ a dictionary to ``validates`` that will override any data on the instance.
     obj = Category(code=42)
     data = {'code': 'notnum'}
 
-    rv = ModelValidator(obj).validate(data)
+    validator = ModelValidator(obj)
+    validator.validate(data)
 
-    # Result(data={}, errors={'code': 'must be a number'})
+    print(validator.errors)
+
+    # errors = {'code': 'must be a number'}
 
 This fails validation because the data passed in was not a number, even though the data on the
 instance was valid.
@@ -306,18 +324,21 @@ shown already:
                 'required': 'please enter a value',
             }
 
-    rv = ModelValidator(obj).validate(data)
+    validator = ModelValidator(obj)
+    validator.validate(data)
 
 When validations is successful for ModelValidator, the resulting data will be the model
-instance with updated data, instead of a dict. A new instance is not created.
+instance with updated data instead of a dict. A new instance is not created.
 It's the same instance we passed to ModelValidator, just mutated.
 
 .. code:: python
 
-    rv = ModelValidator(obj).validate(data)
-    print(rv)
+    validator = ModelValidator(obj)
+    validator.validate(data)
 
-    # Result(data=<models.Category object at 0x10ff825f8>, errors={})
+    print(validator.data)
+
+    # data = <models.Category object at 0x10ff825f8>
 
 Field Validations
 -----------------
@@ -370,7 +391,8 @@ This would generate a field for ``code`` with a required validator.
     class CategoryValidator(ModelValidator):
         code = Field(int, required=False)
 
-    validator = CategoryValidator(category).validate()
+    validator = CategoryValidator(category)
+    validator.validate()
 
 Now ``code`` will not be required when the call to ``validate`` happens.
 
