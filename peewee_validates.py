@@ -41,7 +41,6 @@ Result = namedtuple('Result', ('data', 'errors'))
 
 def validate_required():
     def required_validator(field, data):
-        print('checking', field.name, 'with', data, 'and', field.value)
         if not field.value:
             raise ValidationError('required')
     return required_validator
