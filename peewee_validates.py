@@ -1,6 +1,7 @@
 from collections import namedtuple
 import decimal
 import re
+from copy import deepcopy
 
 from dateutil.parser import parse as dateutil_parse
 import peewee
@@ -226,7 +227,7 @@ class Field:
         if self.coerce and value is not None:
             try:
                 return self.coerce(value)
-            except:
+            except ValueError:
                 raise ValidationError('coerce_{}'.format(self.coerce.__name__).lower())
         return value
 
@@ -279,7 +280,32 @@ class ValidatorOptions:
         }
 
 
-class Validator:
+class MetaValidator(type):
+    def __new__(mcs, name, bases, attrs):
+        # Collect fields from current class.
+        current_fields = {}
+        for key, value in list(attrs.items()):
+            if isinstance(value, Field):
+                current_fields[key] = value
+                attrs.pop(key)
+        attrs['declared_fields'] = current_fields
+
+        new_class = super().__new__(mcs, name, bases, attrs)
+
+        # Walk through the MRO.
+        declared_fields = {}
+        for base in reversed(new_class.__mro__):
+            # Collect fields from base class.
+            if hasattr(base, 'declared_fields'):
+                declared_fields.update(base.declared_fields)
+
+        new_class.base_fields = declared_fields
+        new_class.declared_fields = declared_fields
+
+        return new_class
+
+
+class Validator(metaclass=MetaValidator):
     class Meta:
         pass
 
@@ -294,18 +320,7 @@ class Validator:
 
         self._meta = ValidatorOptions(self)
         self._meta.__dict__.update(self.Meta.__dict__)
-
-        self.initialize_fields()
-
-    def initialize_fields(self):
-        """
-        Add any fields that are specified on this class.
-
-        :return: None
-        """
-        for key, value in self.__class__.__dict__.items():
-            if isinstance(value, Field):
-                self._meta.fields[key] = value
+        self._meta.fields = deepcopy(self.base_fields)
 
     def add_error(self, exc, field):
         """
@@ -383,6 +398,7 @@ class Validator:
 
         # return Result(self.data, self.errors)
         return (not self.errors)
+
 
 
 def validate_unique(field, data):
