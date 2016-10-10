@@ -1,12 +1,27 @@
 from collections import namedtuple
-import decimal
-import re
 from copy import deepcopy
+from decimal import Decimal
+from inspect import isclass
+import re
 
 from dateutil.parser import parse as dateutil_parse
+from playhouse.fields import ManyToManyField
 import peewee
 
-__all__ = ['ValidationError', 'Field', 'PeeweeField', 'Validator', 'ModelValidator']
+__all__ = ['ValidationError', 'Field', 'Validator', 'ModelValidator']
+
+
+DB_FIELD_MAP = {
+    'bigint': int,
+    'bool': bool,
+    'date': 'date',
+    'datetime': 'datetime',
+    'decimal': 'decimal',
+    'double': float,
+    'float': float,
+    'int': int,
+    'time': 'time',
+}
 
 
 class ValidationError(Exception):
@@ -28,11 +43,33 @@ def datetime(v):
     return dateutil_parse(v)
 
 
+def foreignkey(value):
+    if isinstance(value, (str, int, float)):
+        return int(value)
+    if isinstance(value, peewee.Model):
+        return value.get_id()
+    return value
+
+
+def manytomany(value):
+    if not isinstance(value, (list, tuple)):
+        value = [value]
+    if value and isinstance(value[0], peewee.Model):
+        return [obj.get_id() for obj in value]
+    return value
+
+
 COERCE = {
-    'decimal': decimal.Decimal,
+    'str': str,
+    'int': int,
+    'float': float,
+    'bool': bool,
+    'decimal': Decimal,
     'date': date,
     'time': time,
     'datetime': datetime,
+    'foreignkey': foreignkey,
+    'manytomany': manytomany,
     'null': lambda v: v,
     None: lambda v: v,
 }
@@ -42,8 +79,15 @@ Result = namedtuple('Result', ('data', 'errors'))
 
 def validate_required():
     def required_validator(field, data):
-        if not field.value:
+        if field.value is None:
             raise ValidationError('required')
+    return required_validator
+
+
+def validate_empty():
+    def required_validator(field, data):
+        if isinstance(field.value, str) and not field.value.strip():
+            raise ValidationError('empty')
     return required_validator
 
 
@@ -158,14 +202,15 @@ def validate_email():
 
 class Field:
 
-    def __init__(self, coerce=None, default=None, required=False, max_length=None, min_length=None,
-                 choices=None, range=None, validators=None):
+    def __init__(self, coerce=None, default=None, required=False, empty=True,
+                 max_length=None, min_length=None, choices=None, range=None, validators=None):
         """
         Initialize a field, mostly used for validation and coersion purposes.
 
         :param coerce: Method (or name of predefined method) to coerce value.
         :param default: Default value to use if none is provided.
         :param required: Shortcut to add validate_required() validator.
+        :param empty: Shortcut to add validate_empty() validator.
         :param max_length: Shortcut to add validate_max_length() validator.
         :param min_length: Shortcut to add validate_min_length() validator.
         :param choices: Shortcut to add validate_choices() validator.
@@ -180,6 +225,9 @@ class Field:
 
         if required:
             self.validators.append(validate_required())
+
+        if not empty:
+            self.validators.append(validate_empty())
 
         if max_length:
             self.validators.append(validate_max_length(int(max_length)))
@@ -255,7 +303,8 @@ class ValidatorOptions:
         self.exclude = ()
         self.messages = {}
         self.default_messages = {
-            'required': 'required field',
+            'required': 'must be provided',
+            'empty': 'must not be empty',
             'choices': 'must be one of the choices: {choices}',
             'exclude': 'must not be one of the choices: {choices}',
             'range': 'must be in the range {low} to {high}',
@@ -277,6 +326,8 @@ class ValidatorOptions:
             'coerce_float': 'must be a valid float',
             'coerce_int': 'must be a valid integer',
             'coerce_bool': 'must be a valid bool',
+            'coerce_foreignkey': 'unable to find related object',
+            'coerce_manytomany': 'unable to find related object',
         }
 
 
@@ -320,7 +371,18 @@ class Validator(metaclass=MetaValidator):
 
         self._meta = ValidatorOptions(self)
         self._meta.__dict__.update(self.Meta.__dict__)
-        self._meta.fields = deepcopy(self.base_fields)
+
+        self.initialize_fields()
+
+    def initialize_fields(self):
+        """
+        The dict self.base_fields is a model instance at this point.
+        Turn it into an instance attribute on this meta class.
+        Also intitialize any other special fields if needed.
+
+        :return: None
+        """
+        self._meta.fields.update(deepcopy(self.base_fields))
 
     def add_error(self, exc, field):
         """
@@ -336,6 +398,53 @@ class Validator(metaclass=MetaValidator):
         if not message:
             message = self._meta.default_messages.get(key, 'invalid: {}'.format(key))
         self.errors[field] = message.format(**exc.kwargs)
+
+    def validate_fields(self, data=None, only=None, exclude=None):
+        """
+        Validate the data for all fields.
+        Update the self.data dict and self.errors dict based on data and errors.
+
+        :param data: Dictionary of data to validate.
+        :param only: List or tuple of fields to validate.
+        :param exclude: List or tuple of fields to exclude from validation.
+        :return: None
+        """
+        data = data or {}
+        only = only or self._meta.only
+        exclude = exclude or self._meta.exclude
+
+        # Loop through all fields so we can run validations on them.
+        for name, field in self._meta.fields.items():
+            if name in exclude or (only and name not in only):
+                continue
+            try:
+                field.validate(name, data)
+                self.data[name] = field.value
+            except ValidationError as exc:
+                self.add_error(exc, field.name)
+                continue
+
+    def clean_fields(self, data=None):
+        """
+        For each field, check to see if there is a clean_<name> method.
+        If so, run that method and set the returned value on the self.data dict.
+        This happens after all validations so that each field can act on the
+        cleaned data of other fields if needed.
+
+        :param data: Dictionary of data to clean.
+        :return: None
+        """
+        data = data or {}
+
+        if not self.errors:
+            for name, value in data.items():
+                try:
+                    method = getattr(self, 'clean_{}'.format(name), None)
+                    if method:
+                        self.data[name] = method(value)
+                except ValidationError as exc:
+                    self.add_error(exc, name)
+                    continue
 
     def clean(self, data):
         """
@@ -357,39 +466,14 @@ class Validator(metaclass=MetaValidator):
         :param exclude: List or tuple of fields to exclude from validation.
         :return: Tuple of (data, errors).
         """
-        self.errors = {}
         data = data or {}
+        self.errors = {}
         self.data = {}
 
-        # Loop through all fields so we can run validations on them.
-        for name, field in self._meta.fields.items():
-            # If field is excluded or we have a list to only validate, check it for this field.
-            only = only or self._meta.only
-            exclude = exclude or self._meta.exclude
-            if name in exclude or (only and name not in only):
-                continue
+        self.validate_fields(data, only, exclude)
+        self.clean_fields(data)
 
-            try:
-                # Run the field validators and retain the cleaned, validated value.
-                field.validate(name, data)
-                self.data[name] = field.value
-            except ValidationError as exc:
-                self.add_error(exc, field.name)
-                continue
-
-        # Now try to clean all the fields. This happens after all validations so that
-        # each field can act on the cleaned data of other fields if needed.
-        if not self.errors:
-            for name, value in data.items():
-                try:
-                    method = getattr(self, 'clean_{}'.format(name), None)
-                    if method:
-                        self.data[name] = method(value)
-                except ValidationError as exc:
-                    self.add_error(exc, name)
-                    continue
-
-        # Then finally clean all the data (not specific to one field).
+        # Clean data (not specific to one field).
         if not self.errors:
             try:
                 self.data = self.clean(self.data)
@@ -400,103 +484,46 @@ class Validator(metaclass=MetaValidator):
         return (not self.errors)
 
 
-
-def validate_unique(field, data):
-    if getattr(field.field, 'unique', False):
-        query = field.instance.select().where(field.field == field.value)
-        # If we have an ID, need to exclude the current record from the check.
-        if field.pk_field and field.pk_value:
-            query = query.where(field.pk_field != field.pk_value)
+def validate_unique(queryset, lookup_field, pk_field, pk_value):
+    """Validate that the given lookup field is unique within the queryset."""
+    def unique_validator(field, data):
+        query = queryset.where(lookup_field == field.value)
+        if pk_field and pk_value:
+            query = query.where(pk_field != pk_value)
         if query.count():
             raise ValidationError('unique')
+    return unique_validator
 
 
-def validate_related(field, data):
-    if field.value is not None and isinstance(field.field, peewee.ForeignKeyField):
-        try:
-            return field.field.rel_model.get(field.field.to_field == field.value)
-        except field.field.rel_model.DoesNotExist:
-            raise ValidationError('related')
+def validate_related(instance, lookup_field):
+    def related_validator(field, data):
+        if field.value is not None:
+            try:
+                lookup_field.rel_model.get(lookup_field.to_field == field.value)
+            except lookup_field.rel_model.DoesNotExist:
+                raise ValidationError('related')
+    return related_validator
 
 
-class PeeweeField(Field):
-    """Just like a normal field except it's tied to a Peewee model instance."""
+def validate_manytomany(instance, lookup_field):
+    def related_validator(field, data):
+        def get_id_list():
+            """Construct a list of instance IDs."""
+            id_list = field.value
+            if not isinstance(id_list, (list, tuple)):
+                id_list = [id_list]
+            if id_list and isinstance(id_list[0], peewee.Model):
+                id_list = [obj.get_id() for obj in id_list]
+            return id_list
 
-    DB_FIELD_MAP = {
-        'bigint': int,
-        'bool': bool,
-        'date': 'date',
-        'datetime': 'datetime',
-        'decimal': 'decimal',
-        'double': float,
-        'float': float,
-        'int': int,
-        'time': 'time',
-    }
-
-    def __init__(self, instance, field):
-        """
-        Initialize a field based on a Peewee model's field.
-
-        :param instance: Peewee model instance.
-        :param field: Peewee field instance.
-        """
-        if not isinstance(instance, peewee.Model):
-            msg = 'First argument to {} must be an instance of peewee.Model.'
-            raise AttributeError(msg.format(self.__class__.__name__))
-
-        self.instance = instance
-        self.field = field
-        self.pk_value = self.instance._get_pk_value()
-        self.pk_field = self.instance._meta.primary_key
-
-        required = not field.null
-        max_length = getattr(field, 'max_length', None)
-        coerce = PeeweeField.DB_FIELD_MAP.get(field.get_db_field(), str)
-
-        choices = getattr(field, 'choices', ())
-        if choices:
-            choices = tuple(c[0] for c in choices)
-
-        def model_lookup(value):
-            """If it's a model already, convert it to the value of the PK."""
-            if isinstance(value, peewee.Model):
-                return value._get_pk_value()
-            return value
-
-        if isinstance(field, peewee.ForeignKeyField):
-            coerce = model_lookup
-
-        validators = [validate_unique, validate_related]
-
-        super().__init__(
-            coerce=coerce, required=required, max_length=max_length, validators=validators,
-            choices=choices)
-
-    def get_value(self, data):
-        """
-        Get the value of this field from the data.
-        This tries to first get the value from the dictionary,
-        but if it doesn't exist there, get it from the instance.
-        If there is a problem with the data, raise ValidationError.
-
-        :param data: Dictionary of data for all fields.
-        :raises: ValidationError
-        :return: The value of this field.
-        :rtype: any
-        """
-        if self.name in data:
-            return data.get(self.name, '')
-
-        try:
-            return getattr(self.instance, self.name, None)
-        except peewee.DoesNotExist:
-            pass
-
-        if callable(self.default):
-            return self.default()
-
-        return self.default
+        if field.value is not None:
+            related = lookup_field.get_models()[1]
+            for pk in get_id_list():
+                try:
+                    related.get(related._meta.primary_key == pk)
+                except peewee.DoesNotExist:
+                    raise ValidationError('related')
+    return related_validator
 
 
 class ModelValidator(Validator):
@@ -514,21 +541,86 @@ class ModelValidator(Validator):
         self.instance = instance
         self.pk_value = self.instance._get_pk_value()
         self.pk_field = self.instance._meta.primary_key
+
         super().__init__()
+
+    def convert_field(self, name, field):
+        """
+        Convert a field from a Peewee field to the corresponding validator Field instance.
+
+        :return: Converted field.
+        :rtype: peewee_validates.Field
+        """
+        coerce = DB_FIELD_MAP.get(field.get_db_field(), str)
+        required = not bool(getattr(field, 'null', False))
+        empty = bool(getattr(field, 'null', False))
+        max_length = getattr(field, 'max_length', None)
+        default = getattr(field, 'default', None)
+        validators = []
+
+        choices = getattr(field, 'choices', ())
+        if choices:
+            choices = tuple(c[0] for c in choices)
+
+        if getattr(field, 'unique', False):
+            unique = validate_unique(self.instance.select(), field, self.pk_field, self.pk_value)
+            validators.append(unique)
+
+        if isinstance(field, peewee.ForeignKeyField):
+            coerce = 'foreignkey'
+            validators.append(validate_related(self.instance, field))
+
+        if isinstance(field, ManyToManyField):
+            coerce = 'manytomany'
+            validators.append(validate_manytomany(self.instance, field))
+
+        return Field(coerce=coerce, required=required, empty=empty, max_length=max_length,
+                     default=default, choices=choices, validators=validators)
 
     def initialize_fields(self):
         """
-        Auto create the fields from the instance, then call the super.
-        This will use fields from the model instance, then override them with
-        any fields specified directly on this class.
+        Convert all model fields to validator fields.
+        Then call the parent so that overwrites can happen if necessary for manually defined fields.
 
         :return: None
         """
-        for key, field in self.instance._meta.fields.items():
-            if isinstance(field, peewee.PrimaryKeyField):
+        # Pull all the "normal" fields off the model instance meta.
+        for name, field in self.instance._meta.fields.items():
+            if getattr(field, 'primary_key', False):
                 continue
-            self._meta.fields[key] = PeeweeField(self.instance, field)
+            self._meta.fields[name] = self.convert_field(name, field)
+
+        # Many-to-many fields are not stored in the meta fields dict.
+        # Pull them directly off the class.
+        for name in dir(self.instance.__class__):
+            field = getattr(self.instance.__class__, name, None)
+            if isinstance(field, ManyToManyField):
+                self._meta.fields[name] = self.convert_field(name, field)
+
         super().initialize_fields()
+
+    def validate(self, data=None, only=None, exclude=None):
+        """
+        By default, use the value from the model instance and set that value in the data dict.
+
+        :param data: Dictionary of data to validate.
+        :param only: List or tuple of fields to validate.
+        :param exclude: List or tuple of fields to exclude from validation.
+        :return: Tuple of (data, errors).
+        """
+        data = data or {}
+        only = only or self._meta.only
+        exclude = exclude or self._meta.exclude
+
+        for name, field in self.instance._meta.fields.items():
+            if name in exclude or (only and name not in only):
+                continue
+            try:
+                data.setdefault(name, getattr(self.instance, name, None))
+            except (ValueError, peewee.DoesNotExist):
+                data.setdefault(name, self.instance._data.get(name, None))
+
+        return super().validate(data=data, only=only, exclude=exclude)
 
     def clean(self, data):
         """
@@ -541,8 +633,9 @@ class ModelValidator(Validator):
         :return: Instance with updated values.
         :rtype: peewee.Model
         """
-        for key, value in data.items():
-            setattr(self.instance, key, value)
+        for name, value in data.items():
+            # TODO: this fails on ManyToMany if self.instance has not been saved.
+            setattr(self.instance, name, value)
         data = super().clean(data)
         self.perform_index_validation(data)
         return self.instance

@@ -26,14 +26,14 @@ def test_required():
     validator = TestValidator()
     valid = validator.validate()
     assert not valid
-    assert validator.errors['bool_field'] == 'required field'
-    assert validator.errors['decimal_field'] == 'required field'
-    assert validator.errors['float_field'] == 'required field'
-    assert validator.errors['int_field'] == 'required field'
-    assert validator.errors['str_field'] == 'required field'
-    assert validator.errors['date_field'] == 'required field'
-    assert validator.errors['time_field'] == 'required field'
-    assert validator.errors['datetime_field'] == 'required field'
+    assert validator.errors['bool_field'] == 'must be provided'
+    assert validator.errors['decimal_field'] == 'must be provided'
+    assert validator.errors['float_field'] == 'must be provided'
+    assert validator.errors['int_field'] == 'must be provided'
+    assert validator.errors['str_field'] == 'must be provided'
+    assert validator.errors['date_field'] == 'must be provided'
+    assert validator.errors['time_field'] == 'must be provided'
+    assert validator.errors['datetime_field'] == 'must be provided'
 
 
 def test_data_coersions():
@@ -281,7 +281,7 @@ def test_clean_field_error():
     valid = validator.validate({'field1': 'tim'})
     assert not valid
     assert validator.data['field1'] == 'tim'
-    assert validator.errors['field1'] == 'required field'
+    assert validator.errors['field1'] == 'must be provided'
 
 
 def test_clean():
@@ -309,7 +309,7 @@ def test_clean_error():
     valid = validator.validate({'field1': 'tim'})
     assert not valid
     assert validator.data['field1'] == 'tim'
-    assert validator.errors['__base__'] == 'required field'
+    assert validator.errors['__base__'] == 'must be provided'
 
 
 def test_custom_messages():

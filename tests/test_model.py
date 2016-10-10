@@ -2,7 +2,6 @@ import pytest
 
 import peewee
 
-from peewee_validates import PeeweeField
 from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
 
@@ -15,9 +14,6 @@ from tests.models import Person
 def test_not_instance():
     with pytest.raises(AttributeError):
         ModelValidator(Person)
-
-    with pytest.raises(AttributeError):
-        PeeweeField(Person, peewee.CharField())
 
 
 def assert_instance_works():
@@ -32,7 +28,7 @@ def test_required():
     validator = ModelValidator(Person())
     valid = validator.validate()
     assert not valid
-    assert validator.errors['name'] == 'required field'
+    assert validator.errors['name'] == 'must be provided'
 
 
 def test_clean():
@@ -57,7 +53,7 @@ def test_clean_error():
     valid = validator.validate({'name': 'tim'})
     assert not valid
     assert validator.data['name'] == 'tim'
-    assert validator.errors['__base__'] == 'required field'
+    assert validator.errors['__base__'] == 'must be provided'
 
 
 def test_choices():
@@ -80,8 +76,8 @@ def test_default():
     valid = validator.validate()
     assert not valid
     assert validator.data['field1'] == 'Tim'
-    assert validator.errors['field2'] == 'required field'
-    assert validator.errors['field3'] == 'required field'
+    assert validator.errors['field2'] == 'must be provided'
+    assert validator.errors['field3'] == 'must be provided'
 
 
 def test_missing_related():
@@ -93,7 +89,7 @@ def test_missing_related():
 
     valid = validator.validate()
     assert not valid
-    assert validator.errors['organization'] == 'required field'
+    assert validator.errors['organization'] == 'must be provided'
 
 
 def test_missing_related_callable_default():
