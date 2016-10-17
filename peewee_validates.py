@@ -1,7 +1,7 @@
 from collections import namedtuple
 from copy import deepcopy
 from decimal import Decimal
-from inspect import isclass
+import datetime as dt
 import re
 
 from dateutil.parser import parse as dateutil_parse
@@ -32,14 +32,20 @@ class ValidationError(Exception):
 
 
 def date(v):
+    if isinstance(v, dt.date):
+        return v
     return dateutil_parse(v).date()
 
 
 def time(v):
+    if isinstance(v, dt.time):
+        return v
     return dateutil_parse(v).time()
 
 
 def datetime(v):
+    if isinstance(v, dt.datetime):
+        return v
     return dateutil_parse(v)
 
 
