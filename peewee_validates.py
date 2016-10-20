@@ -542,7 +542,7 @@ class ModelValidator(Validator):
         """
         if not isinstance(instance, peewee.Model):
             msg = 'First argument to {} must be an instance of peewee.Model.'
-            raise AttributeError(msg.format(self.__class__.__name__))
+            raise AttributeError(msg.format(type(self).__name__))
 
         self.instance = instance
         self.pk_value = self.instance._get_pk_value()
@@ -598,8 +598,8 @@ class ModelValidator(Validator):
 
         # Many-to-many fields are not stored in the meta fields dict.
         # Pull them directly off the class.
-        for name in dir(self.instance.__class__):
-            field = getattr(self.instance.__class__, name, None)
+        for name in dir(type(self.instance)):
+            field = getattr(type(self.instance), name, None)
             if isinstance(field, ManyToManyField):
                 self._meta.fields[name] = self.convert_field(name, field)
 
@@ -639,12 +639,9 @@ class ModelValidator(Validator):
         :return: Instance with updated values.
         :rtype: peewee.Model
         """
-        for name, value in data.items():
-            # TODO: this fails on ManyToMany if self.instance has not been saved.
-            setattr(self.instance, name, value)
         data = super().clean(data)
         self.perform_index_validation(data)
-        return self.instance
+        return self.data
 
     def perform_index_validation(self, data):
         """
@@ -677,3 +674,17 @@ class ModelValidator(Validator):
                         raise ValidationError('index', fields=str.join(', ', index.keys()))
                     except ValidationError as exc:
                         self.add_error(exc, col)
+
+    def save(self, force_insert=False):
+        delayed = {}
+        for field, value in self.data.items():
+            model_field = getattr(type(self.instance), field, None)
+            if isinstance(model_field, ManyToManyField):
+                delayed[field] = value
+                continue
+            setattr(self.instance, field, value)
+
+        self.instance.save(force_insert=force_insert)
+
+        for field, value in delayed.items():
+            setattr(self.instance, field, value)
