@@ -31,38 +31,42 @@ class ValidationError(Exception):
         super().__init__(*args)
 
 
-def date(v):
-    if isinstance(v, dt.date):
-        return v
-    return dateutil_parse(v).date()
+def date(value):
+    if isinstance(value, dt.date):
+        return value
+    return dateutil_parse(value).date()
 
 
-def time(v):
-    if isinstance(v, dt.time):
-        return v
-    return dateutil_parse(v).time()
+def time(value):
+    if isinstance(value, dt.time):
+        return value
+    return dateutil_parse(value).time()
 
 
-def datetime(v):
-    if isinstance(v, dt.datetime):
-        return v
-    return dateutil_parse(v)
+def datetime(value):
+    if isinstance(value, dt.datetime):
+        return value
+    return dateutil_parse(value)
 
 
-def foreignkey(value):
-    if isinstance(value, (str, int, float)):
-        return int(value)
-    if isinstance(value, peewee.Model):
-        return value.get_id()
-    return value
+# def foreignkey(value):
+#     """coerce from instance or str to integer id"""
+#     if isinstance(value, (str, int, float)):
+#         return int(value)
+#     if isinstance(value, peewee.Model):
+#         return value.get_id()
+#     return value
 
 
-def manytomany(value):
-    if not isinstance(value, (list, tuple)):
-        value = [value]
-    if value and isinstance(value[0], peewee.Model):
-        return [obj.get_id() for obj in value]
-    return value
+# def manytomany(value):
+#     """coerce from list of instances or list of str to integer id"""
+#     if not isinstance(value, (list, tuple)):
+#         value = [value]
+#     if value and isinstance(value[0], (str, int, float)):
+#         return [int(x) for x in value]
+#     if value and isinstance(value[0], peewee.Model):
+#         return [obj.get_id() for obj in value]
+#     return value
 
 
 COERCE = {
@@ -74,8 +78,8 @@ COERCE = {
     'date': date,
     'time': time,
     'datetime': datetime,
-    'foreignkey': foreignkey,
-    'manytomany': manytomany,
+    # 'foreignkey': foreignkey,
+    # 'manytomany': manytomany,
     'null': lambda v: v,
     None: lambda v: v,
 }
@@ -175,7 +179,6 @@ def validate_email():
         r'|\\[\001-\011\013\014\016-\177])*"$)', re.IGNORECASE | re.UNICODE)
 
     domain_regex = re.compile(
-        # domain
         r'(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+'
         r'(?:[A-Z]{2,6}|[A-Z0-9-]{2,})$'
         r'|^\[(25[0-5]|2[0-4]\d|[0-1]?\d?\d)'
@@ -196,12 +199,7 @@ def validate_email():
             return
 
         if not domain_regex.match(domain_part):
-            try:
-                domain_part = domain_part.encode('idna').decode('ascii')
-            except UnicodeError:
-                pass
-            if not domain_regex.match(domain_part):
-                raise ValidationError('email')
+            raise ValidationError('email')
 
     return email_validator
 
@@ -332,8 +330,8 @@ class ValidatorOptions:
             'coerce_float': 'must be a valid float',
             'coerce_int': 'must be a valid integer',
             'coerce_bool': 'must be a valid bool',
-            'coerce_foreignkey': 'unable to find related object',
-            'coerce_manytomany': 'unable to find related object',
+            # 'coerce_foreignkey': 'must be instance or foreign key',
+            # 'coerce_manytomany': 'must be instance or foreign key',
         }
 
 
@@ -523,7 +521,7 @@ def validate_manytomany(instance, lookup_field):
             return id_list
 
         if field.value is not None:
-            related = lookup_field.get_models()[1]
+            related = lookup_field.rel_model
             for pk in get_id_list():
                 try:
                     related.get(related._meta.primary_key == pk)
@@ -558,8 +556,8 @@ class ModelValidator(Validator):
         :rtype: peewee_validates.Field
         """
         coerce = DB_FIELD_MAP.get(field.get_db_field(), str)
-        required = not bool(getattr(field, 'null', False))
-        empty = bool(getattr(field, 'null', False))
+        required = not bool(getattr(field, 'null', True))
+        empty = bool(getattr(field, 'null', True))
         max_length = getattr(field, 'max_length', None)
         default = getattr(field, 'default', None)
         validators = []
@@ -573,11 +571,11 @@ class ModelValidator(Validator):
             validators.append(unique)
 
         if isinstance(field, peewee.ForeignKeyField):
-            coerce = 'foreignkey'
+            coerce = None  # 'foreignkey'
             validators.append(validate_related(self.instance, field))
 
         if isinstance(field, ManyToManyField):
-            coerce = 'manytomany'
+            coerce = None  # 'manytomany'
             validators.append(validate_manytomany(self.instance, field))
 
         return Field(coerce=coerce, required=required, empty=empty, max_length=max_length,

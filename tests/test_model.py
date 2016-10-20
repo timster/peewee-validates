@@ -1,14 +1,14 @@
 import pytest
 
-import peewee
-
 from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
 
 from tests.models import BasicFields
 from tests.models import ComplexPerson
+from tests.models import Course
 from tests.models import Organization
 from tests.models import Person
+from tests.models import Student
 
 
 def test_not_instance():
@@ -16,12 +16,12 @@ def test_not_instance():
         ModelValidator(Person)
 
 
-def assert_instance_works():
-    validator = ModelValidator(Person())
-    valid = validator.validate({'name': 'timster'})
+def test_instance():
+    instance = Person()
+    validator = ModelValidator(instance)
+    valid = validator.validate({'name': 'tim'})
     assert valid
-    assert isinstance(validator.data, Person)
-    assert validator.data.name == 'timster'
+    assert validator.data['name'] == 'tim'
 
 
 def test_required():
@@ -67,9 +67,6 @@ def test_choices():
     valid = validator.validate({'organization': 1, 'gender': 'M'})
     assert valid
 
-    valid = validator.validate({'gender': 'M'})
-    assert valid
-
 
 def test_default():
     validator = ModelValidator(BasicFields())
@@ -80,7 +77,7 @@ def test_default():
     assert validator.errors['field3'] == 'must be provided'
 
 
-def test_missing_related():
+def test_related_missing():
     validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
 
     valid = validator.validate({'organization': 999})
@@ -92,30 +89,22 @@ def test_missing_related():
     assert validator.errors['organization'] == 'must be provided'
 
 
-def test_missing_related_callable_default():
-    def getorg():
-        return 99
-
-    # validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
-    # validator._meta.fields['organization'].default = getorg
-
-    # valid = validator.validate()
-    # assert not valid
-    # assert validator.errors['organization'] == 'unable to find related object'
+def test_related_int():
+    org = Organization.create(name='new1')
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
+    valid = validator.validate({'organization': org.id})
+    assert valid
 
 
-def test_working_related():
-    org = Organization.get(id=1)
-    # validator = ModelValidator(ComplexPerson(organization=1, name='tim', gender='M'))
-
-    # valid = validator.validate()
-    # assert not valid
-    # assert validator.data.organization == org
+def test_related_instance():
+    org = Organization.create(name='new1')
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
+    valid = validator.validate({'organization': org})
+    assert valid
 
 
 def test_unique():
-    person = Person(name='tim')
-    person.save()
+    person = Person.create(name='tim')
 
     validator = ModelValidator(Person(name='tim'))
     valid = validator.validate({'gender': 'M'})
@@ -128,8 +117,7 @@ def test_unique():
 
 
 def test_unique_index():
-    obj = BasicFields(field1='one', field2='two', field3='three')
-    obj.save()
+    obj = BasicFields.create(field1='one', field2='two', field3='three')
 
     validator = ModelValidator(BasicFields(field1='one', field2='two', field3='three'))
     valid = validator.validate()
@@ -140,3 +128,85 @@ def test_unique_index():
     validator = ModelValidator(obj)
     valid = validator.validate()
     assert valid
+
+
+def test_validate_only():
+    obj = BasicFields(field1='one')
+
+    validator = ModelValidator(obj)
+    valid = validator.validate(only=('field1', ))
+    assert valid
+
+
+def test_save():
+    obj = BasicFields(field1='one', field2='124124', field3='1232314')
+
+    validator = ModelValidator(obj)
+    valid = validator.validate({'field1': 'updated'})
+    assert valid
+
+    validator.save()
+
+    assert obj.id
+    assert obj.field1 == 'updated'
+
+
+def test_m2m_empty():
+    validator = ModelValidator(Student(name='tim'))
+
+    valid = validator.validate()
+    assert valid
+
+    valid = validator.validate({'courses': []})
+    assert valid
+
+
+def test_m2m_missing():
+    validator = ModelValidator(Student(name='tim'))
+
+    valid = validator.validate({'courses': [1, 33]})
+    assert not valid
+    assert validator.errors['courses'] == 'unable to find related object'
+
+
+def test_m2m_ints():
+    validator = ModelValidator(Student(name='tim'))
+
+    c1 = Course.create(name='course1')
+    c2 = Course.create(name='course2')
+
+    valid = validator.validate({'courses': [c1.id, c2.id]})
+    assert valid
+
+    valid = validator.validate({'courses': c1.id})
+    assert valid
+
+
+def test_m2m_instances():
+    validator = ModelValidator(Student(name='tim'))
+
+    c1 = Course.create(name='course1')
+    c2 = Course.create(name='course2')
+
+    valid = validator.validate({'courses': [c1, c2]})
+    assert valid
+
+    valid = validator.validate({'courses': c2})
+    assert valid
+
+
+def test_m2m_save():
+    obj = Student(name='tim')
+    validator = ModelValidator(obj)
+
+    c1 = Course.create(name='course1')
+    c2 = Course.create(name='course2')
+
+    valid = validator.validate({'courses': [c1, c2]})
+    assert valid
+
+    validator.save()
+
+    assert obj.id
+    assert c1 in obj.courses
+    assert c2 in obj.courses

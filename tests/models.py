@@ -1,5 +1,5 @@
 import peewee
-
+from playhouse.fields import ManyToManyField
 
 database = peewee.SqliteDatabase(':memory:')
 
@@ -48,10 +48,31 @@ class ComplexPerson(Person):
             (('name', 'organization'), False),
         )
 
+
+class Student(peewee.Model):
+    name = peewee.CharField(max_length=10)
+
+    class Meta:
+        database = database
+
+
+class Course(peewee.Model):
+    name = peewee.CharField(max_length=10)
+
+    students = ManyToManyField(Student, related_name='courses')
+
+    class Meta:
+        database = database
+
+
 Organization.create_table(fail_silently=True)
 ComplexPerson.create_table(fail_silently=True)
 Person.create_table(fail_silently=True)
 BasicFields.create_table(fail_silently=True)
+
+Student.create_table(fail_silently=True)
+Course.create_table(fail_silently=True)
+Course.students.get_through_model().create_table(fail_silently=True)
 
 organization = Organization(name='main')
 organization.save()

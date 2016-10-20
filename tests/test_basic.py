@@ -8,6 +8,7 @@ from peewee_validates import validate_exclude
 from peewee_validates import validate_function
 from peewee_validates import validate_length
 from peewee_validates import validate_regexp
+from peewee_validates import validate_email
 from peewee_validates import ValidationError
 from peewee_validates import Validator
 
@@ -36,7 +37,21 @@ def test_required():
     assert validator.errors['datetime_field'] == 'must be provided'
 
 
-def test_data_coersions():
+def test_required_empty():
+    class TestValidator(Validator):
+        field1 = Field(str, required=False, empty=False)
+
+    validator = TestValidator()
+
+    valid = validator.validate()
+    assert valid
+
+    valid = validator.validate({'field1': ''})
+    assert not valid
+    assert validator.errors['field1'] == 'must not be empty'
+
+
+def test_dates_coersions():
     class TestValidator(Validator):
         date_field = Field('date', required=True)
         time_field = Field('time', required=True)
@@ -46,6 +61,27 @@ def test_data_coersions():
         'date_field': 'jan 1, 2015',
         'time_field': 'jan 1, 2015 3:20 pm',
         'datetime_field': 'jan 1, 2015 3:20 pm',
+    }
+
+    validator = TestValidator()
+    valid = validator.validate(data)
+
+    assert valid
+    assert validator.data['datetime_field'] == datetime(2015, 1, 1, 15, 20)
+    assert validator.data['date_field'] == date(2015, 1, 1)
+    assert validator.data['time_field'] == time(15, 20)
+
+
+def test_dates_native():
+    class TestValidator(Validator):
+        date_field = Field('date', required=True)
+        time_field = Field('time', required=True)
+        datetime_field = Field('datetime', required=True)
+
+    data = {
+        'date_field': date(2015, 1, 1),
+        'time_field': time(15, 20),
+        'datetime_field': datetime(2015, 1, 1, 15, 20),
     }
 
     validator = TestValidator()
@@ -219,6 +255,33 @@ def test_regexp():
     valid = validator.validate({'first_name': 'asdf'})
     assert not valid
     assert validator.errors['first_name'] == 'must match the pattern ^[i-t]+$'
+
+
+def test_email():
+    class TestValidator(Validator):
+        email = Field(str, validators=[validate_email()])
+
+    invalid_emails = (
+        'no-at-sign',
+        'bad-user-part..asdf@me.com',
+        'bad-domain@asdfasdf',
+    )
+
+    valid_emails = (
+        'someuser@example.com',
+        'some.user@subdomain.example.co.uk',
+        'whitelist@localhost',
+    )
+
+    validator = TestValidator()
+
+    for value in invalid_emails:
+        valid = validator.validate({'email': value})
+        assert not valid, 'email: {}'.format(value)
+
+    for value in valid_emails:
+        valid = validator.validate({'email': value})
+        assert valid, 'email: {}'.format(value)
 
 
 def test_function():
