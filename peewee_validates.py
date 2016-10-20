@@ -678,7 +678,8 @@ class ModelValidator(Validator):
         for field, value in self.data.items():
             model_field = getattr(type(self.instance), field, None)
             if isinstance(model_field, ManyToManyField):
-                delayed[field] = value
+                if value:
+                    delayed[field] = value
                 continue
             setattr(self.instance, field, value)
 
