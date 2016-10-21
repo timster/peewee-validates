@@ -32,18 +32,24 @@ class ValidationError(Exception):
 
 
 def date(value):
+    if not value:
+        return None
     if isinstance(value, dt.date):
         return value
     return dateutil_parse(value).date()
 
 
 def time(value):
+    if not value:
+        return None
     if isinstance(value, dt.time):
         return value
     return dateutil_parse(value).time()
 
 
 def datetime(value):
+    if not value:
+        return None
     if isinstance(value, dt.datetime):
         return value
     return dateutil_parse(value)
@@ -678,7 +684,7 @@ class ModelValidator(Validator):
         for field, value in self.data.items():
             model_field = getattr(type(self.instance), field, None)
             if isinstance(model_field, ManyToManyField):
-                if value:
+                if value is not None:
                     delayed[field] = value
                 continue
             setattr(self.instance, field, value)
