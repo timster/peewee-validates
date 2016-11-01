@@ -660,11 +660,11 @@ class ModelValidator(Validator):
         for columns, unique in self.instance._meta.indexes:
             if not unique:
                 continue
-            data = {}
+            tempdict = {}
             for col in columns:
                 colkey = col[:-3] if col.endswith('_id') else col
-                data[colkey] = getattr(self.instance, col, None)
-            indexdata.append(data)
+                tempdict[colkey] = data.get(colkey, None)
+            indexdata.append(tempdict)
 
         # Then query for each unique index to see if the value is unique.
         for index in indexdata:
