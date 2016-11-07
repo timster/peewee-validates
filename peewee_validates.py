@@ -673,11 +673,9 @@ class ModelValidator(Validator):
             if self.pk_field and self.pk_value:
                 query = query.where(self.pk_field != self.pk_value)
             if query.count():
+                exc = ValidationError('index', fields=str.join(', ', index.keys()))
                 for col in index.keys():
-                    try:
-                        raise ValidationError('index', fields=str.join(', ', index.keys()))
-                    except ValidationError as exc:
-                        self.add_error(exc, col)
+                    self.add_error(exc, col)
 
     def save(self, force_insert=False):
         delayed = {}
