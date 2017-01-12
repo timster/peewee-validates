@@ -509,7 +509,7 @@ def validate_manytomany(instance, lookup_field):
             if not isinstance(pk_list, (list, tuple)):
                 pk_list = [pk_list]
             if pk_list and isinstance(pk_list[0], dict):
-                pk_list = [obj.get('id', None) for obj in pk_list]
+                pk_list = [obj.get('id', obj) for obj in pk_list]
             if pk_list and isinstance(pk_list[0], peewee.Model):
                 pk_list = [obj.get_id() for obj in pk_list]
             return pk_list
@@ -669,10 +669,20 @@ class ModelValidator(Validator):
         delayed = {}
         for field, value in self.data.items():
             model_field = getattr(type(self.instance), field, None)
+
+            if isinstance(model_field, peewee.ForeignKeyField):
+                if isinstance(value, dict):
+                    value = value.get('id', value)
+
             if isinstance(model_field, ManyToManyField):
                 if value is not None:
+                    if not isinstance(value, (list, tuple)):
+                        value = [value]
+                    if isinstance(value[0], dict):
+                        value = [obj.get('id', obj) for obj in value]
                     delayed[field] = value
                 continue
+
             setattr(self.instance, field, value)
 
         self.instance.save(force_insert=force_insert)
