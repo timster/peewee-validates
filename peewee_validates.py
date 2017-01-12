@@ -55,26 +55,6 @@ def datetime(value):
     return dateutil_parse(value)
 
 
-# def foreignkey(value):
-#     """coerce from instance or str to integer id"""
-#     if isinstance(value, (str, int, float)):
-#         return int(value)
-#     if isinstance(value, peewee.Model):
-#         return value.get_id()
-#     return value
-
-
-# def manytomany(value):
-#     """coerce from list of instances or list of str to integer id"""
-#     if not isinstance(value, (list, tuple)):
-#         value = [value]
-#     if value and isinstance(value[0], (str, int, float)):
-#         return [int(x) for x in value]
-#     if value and isinstance(value[0], peewee.Model):
-#         return [obj.get_id() for obj in value]
-#     return value
-
-
 COERCE = {
     'str': str,
     'int': int,
@@ -84,8 +64,6 @@ COERCE = {
     'date': date,
     'time': time,
     'datetime': datetime,
-    # 'foreignkey': foreignkey,
-    # 'manytomany': manytomany,
     'null': lambda v: v,
     None: lambda v: v,
 }
@@ -336,8 +314,6 @@ class ValidatorOptions:
             'coerce_float': 'must be a valid float',
             'coerce_int': 'must be a valid integer',
             'coerce_bool': 'must be a valid bool',
-            # 'coerce_foreignkey': 'must be instance or foreign key',
-            # 'coerce_manytomany': 'must be instance or foreign key',
         }
 
 
@@ -577,11 +553,11 @@ class ModelValidator(Validator):
             validators.append(unique)
 
         if isinstance(field, peewee.ForeignKeyField):
-            coerce = None  # 'foreignkey'
+            coerce = None
             validators.append(validate_related(self.instance, field))
 
         if isinstance(field, ManyToManyField):
-            coerce = None  # 'manytomany'
+            coerce = None
             validators.append(validate_manytomany(self.instance, field))
 
         return Field(coerce=coerce, required=required, empty=empty, max_length=max_length,
