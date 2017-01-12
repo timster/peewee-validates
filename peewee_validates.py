@@ -484,8 +484,15 @@ def validate_unique(queryset, lookup_field, pk_field, pk_value):
 def validate_related(instance, lookup_field):
     def related_validator(field, data):
         if field.value is not None:
+            # Any one of the following can be accepted:
+            # - an primary key: 123
+            # - an objects with primary key: {'id': 123}
+            # - an instance (with an primary key): <Item 123>
+            pk = field.value
+            if pk and isinstance(pk, dict):
+                pk = pk.get('id', None)
             try:
-                lookup_field.rel_model.get(lookup_field.to_field == field.value)
+                lookup_field.rel_model.get(lookup_field.to_field == pk)
             except lookup_field.rel_model.DoesNotExist:
                 raise ValidationError('related')
     return related_validator
@@ -494,13 +501,18 @@ def validate_related(instance, lookup_field):
 def validate_manytomany(instance, lookup_field):
     def related_validator(field, data):
         def get_id_list():
-            """Construct a list of instance IDs."""
-            id_list = field.value
-            if not isinstance(id_list, (list, tuple)):
-                id_list = [id_list]
-            if id_list and isinstance(id_list[0], peewee.Model):
-                id_list = [obj.get_id() for obj in id_list]
-            return id_list
+            # Any one of the following can be accepted:
+            # - a list of primary keys: [1, 2, 3]
+            # - a list of objects with primary keys: [{'id': 1}, {'id': 2}, {'id': 2}]
+            # - a list of instances (with primary keys): [<Item 1>, <Item 2>, <Item 3>]
+            pk_list = field.value
+            if not isinstance(pk_list, (list, tuple)):
+                pk_list = [pk_list]
+            if pk_list and isinstance(pk_list[0], dict):
+                pk_list = [obj.get('id', None) for obj in pk_list]
+            if pk_list and isinstance(pk_list[0], peewee.Model):
+                pk_list = [obj.get_id() for obj in pk_list]
+            return pk_list
 
         if field.value is not None:
             related = lookup_field.rel_model

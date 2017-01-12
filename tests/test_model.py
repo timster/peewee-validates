@@ -103,6 +103,13 @@ def test_related_instance():
     assert valid
 
 
+def test_related_dict():
+    org = Organization.create(name='new1')
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
+    valid = validator.validate({'organization': {'id': org.id}})
+    assert valid
+
+
 def test_unique():
     person = Person.create(name='tim')
 
@@ -192,6 +199,19 @@ def test_m2m_instances():
     assert valid
 
     valid = validator.validate({'courses': c2})
+    assert valid
+
+
+def test_m2m_dicts():
+    validator = ModelValidator(Student(name='tim'))
+
+    c1 = Course.create(name='course1')
+    c2 = Course.create(name='course2')
+
+    valid = validator.validate({'courses': [{'id': c1.id}, {'id': c2.id}]})
+    assert valid
+
+    valid = validator.validate({'courses': {'id': c1.id}})
     assert valid
 
 
