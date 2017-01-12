@@ -176,6 +176,13 @@ def test_m2m_missing():
     assert validator.errors['courses'] == 'unable to find related object'
 
 
+def test_m2m_blank_list():
+    validator = ModelValidator(Student(name='tim'))
+
+    valid = validator.validate({'courses': []})
+    assert valid
+
+
 def test_m2m_ints():
     validator = ModelValidator(Student(name='tim'))
 

@@ -678,7 +678,7 @@ class ModelValidator(Validator):
                 if value is not None:
                     if not isinstance(value, (list, tuple)):
                         value = [value]
-                    if isinstance(value[0], dict):
+                    if value and isinstance(value[0], dict):
                         value = [obj.get('id', obj) for obj in value]
                     delayed[field] = value
                 continue
