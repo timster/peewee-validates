@@ -28,6 +28,13 @@ class Organization(peewee.Model):
         database = database
 
 
+class PayGrade(peewee.Model):
+    name = peewee.CharField(null=False)
+
+    class Meta:
+        database = database
+
+
 class Person(peewee.Model):
     name = peewee.CharField(null=False, max_length=5, unique=True)
 
@@ -40,6 +47,7 @@ class ComplexPerson(Person):
     gender = peewee.CharField(choices=GENDER_CHOICES)
 
     organization = peewee.ForeignKeyField(Organization, null=False)
+    pay_grade = peewee.ForeignKeyField(PayGrade, null=True)
 
     class Meta:
         database = database
@@ -66,6 +74,7 @@ class Course(peewee.Model):
 
 
 Organization.create_table(fail_silently=True)
+PayGrade.create_table(fail_silently=True)
 ComplexPerson.create_table(fail_silently=True)
 Person.create_table(fail_silently=True)
 BasicFields.create_table(fail_silently=True)

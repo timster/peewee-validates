@@ -77,36 +77,66 @@ def test_default():
     assert validator.errors['field3'] == 'must be provided'
 
 
-def test_related_missing():
+def test_related_required_missing():
     validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
 
     valid = validator.validate({'organization': 999})
     assert not valid
     assert validator.errors['organization'] == 'unable to find related object'
 
+    valid = validator.validate({'organization': None})
+    assert not valid
+    assert validator.errors['organization'] == 'must be provided'
+
     valid = validator.validate()
     assert not valid
     assert validator.errors['organization'] == 'must be provided'
 
 
-def test_related_int():
+def test_related_optional_missing():
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M', organization=1))
+
+    valid = validator.validate({'pay_grade': 999})
+    assert not valid
+    assert validator.errors['pay_grade'] == 'unable to find related object'
+
+    valid = validator.validate({'pay_grade': None})
+    assert valid
+
+    valid = validator.validate()
+    assert valid
+
+
+def test_related_required_int():
     org = Organization.create(name='new1')
     validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
     valid = validator.validate({'organization': org.id})
     assert valid
 
 
-def test_related_instance():
+def test_related_required_instance():
     org = Organization.create(name='new1')
     validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
     valid = validator.validate({'organization': org})
     assert valid
 
 
-def test_related_dict():
+def test_related_required_dict():
     org = Organization.create(name='new1')
     validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
     valid = validator.validate({'organization': {'id': org.id}})
+    assert valid
+
+
+def test_related_required_dict_missing():
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
+    validator.validate({'organization': {}})
+    assert validator.errors['organization'] == 'must be provided'
+
+
+def test_related_optional_dict_missing():
+    validator = ModelValidator(ComplexPerson(name='tim', gender='M', organization=1))
+    valid = validator.validate({'pay_grade': {}})
     assert valid
 
 
@@ -176,13 +206,6 @@ def test_m2m_missing():
     assert validator.errors['courses'] == 'unable to find related object'
 
 
-def test_m2m_blank_list():
-    validator = ModelValidator(Student(name='tim'))
-
-    valid = validator.validate({'courses': []})
-    assert valid
-
-
 def test_m2m_ints():
     validator = ModelValidator(Student(name='tim'))
 
@@ -222,6 +245,16 @@ def test_m2m_dicts():
     assert valid
 
 
+def test_m2m_dicts_blank():
+    validator = ModelValidator(Student(name='tim'))
+
+    valid = validator.validate({'courses': [{}, {}]})
+    assert valid
+
+    valid = validator.validate({'courses': {}})
+    assert valid
+
+
 def test_m2m_save():
     obj = Student(name='tim')
     validator = ModelValidator(obj)
@@ -237,3 +270,15 @@ def test_m2m_save():
     assert obj.id
     assert c1 in obj.courses
     assert c2 in obj.courses
+
+
+def test_m2m_save_blank():
+    obj = Student(name='tim')
+    validator = ModelValidator(obj)
+
+    valid = validator.validate({'courses': [{}, {}]})
+    assert valid
+
+    validator.save()
+
+    assert obj.id

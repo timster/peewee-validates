@@ -79,10 +79,10 @@ def validate_required():
 
 
 def validate_empty():
-    def required_validator(field, data):
+    def empty_validator(field, data):
         if isinstance(field.value, str) and not field.value.strip():
             raise ValidationError('empty')
-    return required_validator
+    return empty_validator
 
 
 def validate_max_length(value):
@@ -247,7 +247,18 @@ class Field:
         :rtype: any
         """
         if self.name in data:
-            return data.get(self.name)
+            value = data.get(self.name)
+
+            # If a dict is provided, pick off the ID and use that as the value.
+            if isinstance(value, dict):
+                return value.get('id')
+
+            # If a list of dicts is provided, pick off the IDs for each item and use that.
+            if isinstance(value, (tuple, list)) and len(value) and isinstance(value[0], dict):
+                return [item['id'] for item in value if item.get('id')]
+
+            return value
+
         if callable(self.default):
             return self.default()
         return self.default
@@ -484,15 +495,11 @@ def validate_unique(queryset, lookup_field, pk_field, pk_value):
 def validate_related(instance, lookup_field):
     def related_validator(field, data):
         if field.value is not None:
-            # Any one of the following can be accepted:
+            # Either of the following can be accepted:
             # - an primary key: 123
-            # - an objects with primary key: {'id': 123}
             # - an instance (with an primary key): <Item 123>
-            pk = field.value
-            if pk and isinstance(pk, dict):
-                pk = pk.get('id', None)
             try:
-                lookup_field.rel_model.get(lookup_field.to_field == pk)
+                lookup_field.rel_model.get(lookup_field.to_field == field.value)
             except lookup_field.rel_model.DoesNotExist:
                 raise ValidationError('related')
     return related_validator
@@ -501,15 +508,12 @@ def validate_related(instance, lookup_field):
 def validate_manytomany(instance, lookup_field):
     def related_validator(field, data):
         def get_id_list():
-            # Any one of the following can be accepted:
+            # Either of the following can be accepted:
             # - a list of primary keys: [1, 2, 3]
-            # - a list of objects with primary keys: [{'id': 1}, {'id': 2}, {'id': 2}]
             # - a list of instances (with primary keys): [<Item 1>, <Item 2>, <Item 3>]
             pk_list = field.value
             if not isinstance(pk_list, (list, tuple)):
                 pk_list = [pk_list]
-            if pk_list and isinstance(pk_list[0], dict):
-                pk_list = [obj.get('id', obj) for obj in pk_list]
             if pk_list and isinstance(pk_list[0], peewee.Model):
                 pk_list = [obj.get_id() for obj in pk_list]
             return pk_list
@@ -670,16 +674,12 @@ class ModelValidator(Validator):
         for field, value in self.data.items():
             model_field = getattr(type(self.instance), field, None)
 
-            if isinstance(model_field, peewee.ForeignKeyField):
-                if isinstance(value, dict):
-                    value = value.get('id', value)
-
             if isinstance(model_field, ManyToManyField):
                 if value is not None:
+                    # Assume at this point that value is something that can be saved.
+                    # Either a PK or instance or list of one of those.
                     if not isinstance(value, (list, tuple)):
                         value = [value]
-                    if value and isinstance(value[0], dict):
-                        value = [obj.get('id', obj) for obj in value]
                     delayed[field] = value
                 continue
 

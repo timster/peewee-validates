@@ -1,3 +1,7 @@
+0.6.2 (2016-01-17)
+==================
+- Better handling of foreign keys (especially with dicts).
+
 0.6.2 (2016-01-12)
 ==================
 - Fixed bugs with ability to specify foreign keys as dictionary objects.
