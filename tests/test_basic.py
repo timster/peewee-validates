@@ -58,7 +58,7 @@ def test_dates_empty():
         datetime_field = Field('datetime')
 
     data = {
-        'date_field': None,
+        'date_field': '',
         'time_field': '',
         'datetime_field': '',
     }
