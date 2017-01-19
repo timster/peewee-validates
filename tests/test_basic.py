@@ -51,6 +51,27 @@ def test_required_empty():
     assert validator.errors['field1'] == 'must not be empty'
 
 
+def test_dates_empty():
+    class TestValidator(Validator):
+        date_field = Field('date')
+        time_field = Field('time')
+        datetime_field = Field('datetime')
+
+    data = {
+        'date_field': None,
+        'time_field': '',
+        'datetime_field': '',
+    }
+
+    validator = TestValidator()
+    valid = validator.validate(data)
+
+    assert valid
+    assert not validator.data['datetime_field']
+    assert not validator.data['date_field']
+    assert not validator.data['time_field']
+
+
 def test_dates_coersions():
     class TestValidator(Validator):
         date_field = Field('date', required=True)
