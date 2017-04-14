@@ -1,4 +1,3 @@
-from collections import namedtuple
 from copy import deepcopy
 from decimal import Decimal
 import datetime as dt
@@ -64,11 +63,7 @@ COERCE = {
     'date': date,
     'time': time,
     'datetime': datetime,
-    'null': lambda v: v,
-    None: lambda v: v,
 }
-
-Result = namedtuple('Result', ('data', 'errors'))
 
 
 def validate_required():
@@ -206,7 +201,6 @@ class Field:
         :param validators: List or tuple of validators to run.
         """
         self.name = None
-        self.provided = False
         self.value = None
         self.default = default
         self.validators = []
@@ -247,18 +241,7 @@ class Field:
         :rtype: any
         """
         if self.name in data:
-            value = data.get(self.name)
-
-            # If a dict is provided, pick off the ID and use that as the value.
-            if isinstance(value, dict):
-                return value.get('id')
-
-            # If a list of dicts is provided, pick off the IDs for each item and use that.
-            if isinstance(value, (tuple, list)) and len(value) and isinstance(value[0], dict):
-                return [item['id'] for item in value if item.get('id')]
-
-            return value
-
+            return data.get(self.name)
         if callable(self.default):
             return self.default()
         return self.default
@@ -477,7 +460,6 @@ class Validator(metaclass=MetaValidator):
             except ValidationError as exc:
                 self.add_error(exc, '__base__')
 
-        # return Result(self.data, self.errors)
         return (not self.errors)
 
 
@@ -495,37 +477,47 @@ def validate_unique(queryset, lookup_field, pk_field, pk_value):
 def validate_related(instance, lookup_field):
     def related_validator(field, data):
         if field.value is not None:
-            # Either of the following can be accepted:
-            # - an primary key: 123
-            # - an instance (with an primary key): <Item 123>
             try:
                 lookup_field.rel_model.get(lookup_field.to_field == field.value)
-            except lookup_field.rel_model.DoesNotExist:
+            except (AttributeError, ValueError, peewee.DoesNotExist):
                 raise ValidationError('related')
     return related_validator
 
 
 def validate_manytomany(instance, lookup_field):
     def related_validator(field, data):
-        def get_id_list():
-            # Either of the following can be accepted:
-            # - a list of primary keys: [1, 2, 3]
-            # - a list of instances (with primary keys): [<Item 1>, <Item 2>, <Item 3>]
-            pk_list = field.value
-            if not isinstance(pk_list, (list, tuple)):
-                pk_list = [pk_list]
-            if pk_list and isinstance(pk_list[0], peewee.Model):
-                pk_list = [obj.get_id() for obj in pk_list]
-            return pk_list
-
-        if field.value is not None:
+        if field.value is not None and len(field.value):
             related = lookup_field.rel_model
-            for pk in get_id_list():
+            for pk in field.value:
                 try:
                     related.get(related._meta.primary_key == pk)
                 except peewee.DoesNotExist:
                     raise ValidationError('related')
     return related_validator
+
+
+def foreignkey(value):
+    if not value:
+        return
+
+    if isinstance(value, dict):
+        return value.get('id')
+
+    if isinstance(value, peewee.Model):
+        return value._get_pk_value()
+
+    return value
+
+
+def manyforeignkey(values):
+    if isinstance(values, (str, int, dict)):
+        raise ValidationError('related')
+
+    if not values:
+        return
+
+    rv = [foreignkey(v) for v in values if v]
+    return rv
 
 
 class ModelValidator(Validator):
@@ -569,11 +561,11 @@ class ModelValidator(Validator):
             validators.append(unique)
 
         if isinstance(field, peewee.ForeignKeyField):
-            coerce = None
+            coerce = foreignkey
             validators.append(validate_related(self.instance, field))
 
         if isinstance(field, ManyToManyField):
-            coerce = None
+            coerce = manyforeignkey
             validators.append(validate_manytomany(self.instance, field))
 
         return Field(coerce=coerce, required=required, empty=empty, max_length=max_length,
@@ -676,10 +668,6 @@ class ModelValidator(Validator):
 
             if isinstance(model_field, ManyToManyField):
                 if value is not None:
-                    # Assume at this point that value is something that can be saved.
-                    # Either a PK or instance or list of one of those.
-                    if not isinstance(value, (list, tuple)):
-                        value = [value]
                     delayed[field] = value
                 continue
 
