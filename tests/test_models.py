@@ -218,8 +218,11 @@ def test_m2m_ints():
     print(validator.errors)
     assert valid
 
-    # valid = validator.validate({'courses': c1.id})
-    # assert valid
+    valid = validator.validate({'courses': c1.id})
+    assert valid
+
+    valid = validator.validate({'courses': str(c1.id)})
+    assert valid
 
 
 def test_m2m_instances():
