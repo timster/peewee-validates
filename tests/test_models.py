@@ -1,5 +1,6 @@
 import pytest
 
+from peewee_validates import DEFAULT_MESSAGES
 from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
 
@@ -28,7 +29,7 @@ def test_required():
     validator = ModelValidator(Person())
     valid = validator.validate()
     assert not valid
-    assert validator.errors['name'] == 'must be provided'
+    assert validator.errors['name'] == DEFAULT_MESSAGES['required']
 
 
 def test_clean():
@@ -53,7 +54,7 @@ def test_clean_error():
     valid = validator.validate({'name': 'tim'})
     assert not valid
     assert validator.data['name'] == 'tim'
-    assert validator.errors['__base__'] == 'must be provided'
+    assert validator.errors['__base__'] == DEFAULT_MESSAGES['required']
 
 
 def test_choices():
@@ -61,7 +62,7 @@ def test_choices():
 
     valid = validator.validate({'organization': 1, 'gender': 'S'})
     assert not valid
-    assert validator.errors['gender'] == 'must be one of the choices: M, F'
+    assert validator.errors['gender'] == DEFAULT_MESSAGES['one_of'].format(choices='M, F')
     assert 'name' not in validator.errors
 
     valid = validator.validate({'organization': 1, 'gender': 'M'})
@@ -73,8 +74,8 @@ def test_default():
     valid = validator.validate()
     assert not valid
     assert validator.data['field1'] == 'Tim'
-    assert validator.errors['field2'] == 'must be provided'
-    assert validator.errors['field3'] == 'must be provided'
+    assert validator.errors['field2'] == DEFAULT_MESSAGES['required']
+    assert validator.errors['field3'] == DEFAULT_MESSAGES['required']
 
 
 def test_related_required_missing():
@@ -82,15 +83,15 @@ def test_related_required_missing():
 
     valid = validator.validate({'organization': 999})
     assert not valid
-    assert validator.errors['organization'] == 'unable to find related object'
+    assert validator.errors['organization'] == DEFAULT_MESSAGES['related'].format(field='id', values=999)
 
     valid = validator.validate({'organization': None})
     assert not valid
-    assert validator.errors['organization'] == 'must be provided'
+    assert validator.errors['organization'] == DEFAULT_MESSAGES['required']
 
     valid = validator.validate()
     assert not valid
-    assert validator.errors['organization'] == 'must be provided'
+    assert validator.errors['organization'] == DEFAULT_MESSAGES['required']
 
 
 def test_related_optional_missing():
@@ -98,7 +99,7 @@ def test_related_optional_missing():
 
     valid = validator.validate({'pay_grade': 999})
     assert not valid
-    assert validator.errors['pay_grade'] == 'unable to find related object'
+    assert validator.errors['pay_grade'] == DEFAULT_MESSAGES['related'].format(field='id', values=999)
 
     valid = validator.validate({'pay_grade': None})
     assert valid
@@ -131,7 +132,7 @@ def test_related_required_dict():
 def test_related_required_dict_missing():
     validator = ModelValidator(ComplexPerson(name='tim', gender='M'))
     validator.validate({'organization': {}})
-    assert validator.errors['organization'] == 'must be provided'
+    assert validator.errors['organization'] == DEFAULT_MESSAGES['required']
 
 
 def test_related_optional_dict_missing():
@@ -146,7 +147,7 @@ def test_unique():
     validator = ModelValidator(Person(name='tim'))
     valid = validator.validate({'gender': 'M'})
     assert not valid
-    assert validator.errors['name'] == 'must be a unique value'
+    assert validator.errors['name'] == DEFAULT_MESSAGES['unique']
 
     validator = ModelValidator(person)
     valid = validator.validate({'gender': 'M'})
@@ -154,15 +155,16 @@ def test_unique():
 
 
 def test_unique_index():
-    obj = BasicFields.create(field1='one', field2='two', field3='three')
+    obj1 = BasicFields.create(field1='one', field2='two', field3='three')
+    obj2 = BasicFields(field1='one', field2='two', field3='three')
 
-    validator = ModelValidator(BasicFields(field1='one', field2='two', field3='three'))
+    validator = ModelValidator(obj2)
     valid = validator.validate()
     assert not valid
-    assert validator.errors['field1'] == 'fields must be unique together'
-    assert validator.errors['field2'] == 'fields must be unique together'
+    assert validator.errors['field1'] == DEFAULT_MESSAGES['index']
+    assert validator.errors['field2'] == DEFAULT_MESSAGES['index']
 
-    validator = ModelValidator(obj)
+    validator = ModelValidator(obj1)
     valid = validator.validate()
     assert valid
 
@@ -203,7 +205,7 @@ def test_m2m_missing():
 
     valid = validator.validate({'courses': [1, 33]})
     assert not valid
-    assert validator.errors['courses'] == 'unable to find related object'
+    assert validator.errors['courses'] == DEFAULT_MESSAGES['related'].format(field='id', values=[1, 33])
 
 
 def test_m2m_ints():
@@ -229,8 +231,8 @@ def test_m2m_instances():
     valid = validator.validate({'courses': [c1, c2]})
     assert valid
 
-    # valid = validator.validate({'courses': c2})
-    # assert not valid
+    valid = validator.validate({'courses': c1})
+    assert valid
 
 
 def test_m2m_dicts():
@@ -243,20 +245,17 @@ def test_m2m_dicts():
     assert valid
 
     valid = validator.validate({'courses': {'id': c1.id}})
-    assert not valid
-    assert validator.errors['courses'] == 'unable to find related object'
+    assert valid
 
 
 def test_m2m_dicts_blank():
     validator = ModelValidator(Student(name='tim'))
 
     valid = validator.validate({'courses': [{}, {}]})
-    print(validator.errors)
     assert valid
 
     valid = validator.validate({'courses': {}})
-    assert not valid
-    assert validator.errors['courses'] == 'unable to find related object'
+    assert valid
 
 
 def test_m2m_save():
