@@ -4,6 +4,7 @@ import datetime
 import re
 from copy import deepcopy
 from decimal import Decimal
+from decimal import InvalidOperation
 from inspect import isgeneratorfunction
 from inspect import isgenerator
 from collections import Iterable
@@ -35,7 +36,6 @@ DEFAULT_MESSAGES = {
     'range_high': 'Must be at most {high}.',
     'range_low': 'Must be at least {low}.',
     'range_between': 'Must be between {low} and {high}.',
-    'coerce_str': 'Must be a valid string.',
     'coerce_decimal': 'Must be a valid decimal.',
     'coerce_date': 'Must be a valid date.',
     'coerce_time': 'Must be a valid time.',
@@ -105,6 +105,8 @@ def validate_none_of(values):
 
 def validate_range(low=None, high=None):
     def range_validator(field, data):
+        if not field.value:
+            return
         if low is not None and field.value < low:
             key = 'range_low' if high is None else 'range_between'
             raise ValidationError(key, low=low, high=high)
@@ -295,10 +297,7 @@ class StringField(Field):
         super().__init__(required=required, default=default, validators=validators)
 
     def coerce(self, value):
-        try:
-            return str(value)
-        except (TypeError, ValueError):
-            raise ValidationError('coerce_str')
+        return str(value)
 
 
 class FloatField(Field):
@@ -366,7 +365,7 @@ class DecimalField(Field):
     def coerce(self, value):
         try:
             return Decimal(value)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, InvalidOperation):
             raise ValidationError('coerce_decimal')
 
 

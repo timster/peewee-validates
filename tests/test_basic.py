@@ -5,7 +5,6 @@ from datetime import time
 from peewee_validates import DEFAULT_MESSAGES
 from peewee_validates import Field
 from peewee_validates import Validator
-from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
 from peewee_validates import StringField
 from peewee_validates import FloatField
@@ -16,8 +15,6 @@ from peewee_validates import DateField
 from peewee_validates import TimeField
 from peewee_validates import DateTimeField
 from peewee_validates import BooleanField
-from peewee_validates import ModelChoiceField
-from peewee_validates import ManyModelChoiceField
 from peewee_validates import validate_not_empty
 from peewee_validates import validate_one_of
 from peewee_validates import validate_none_of
@@ -27,16 +24,26 @@ from peewee_validates import validate_email
 from peewee_validates import validate_function
 
 
+def test_raw_field():
+    class TestValidator(Validator):
+        field1 = Field()
+
+    validator = TestValidator()
+    valid = validator.validate({'field1': 'thing'})
+    assert valid
+    assert validator.data['field1'] == 'thing'
+
+
 def test_required():
     class TestValidator(Validator):
         bool_field = BooleanField(required=True)
         decimal_field = DecimalField(required=True)
-        float_field = FloatField(required=True)
+        float_field = FloatField(required=True, low=10.0, high=50.0)
         int_field = IntegerField(required=True)
         str_field = StringField(required=True)
-        date_field = DateField(required=True)
-        time_field = TimeField(required=True)
-        datetime_field = DateTimeField(required=True)
+        date_field = DateField(required=True, low='jan 1, 2010', high='dec 1, 2010')
+        time_field = TimeField(required=True, low='9 am', high='10 am')
+        datetime_field = DateTimeField(required=True, low='jan 1, 2010', high='dec 1, 2010')
 
     validator = TestValidator()
     valid = validator.validate()
@@ -49,6 +56,22 @@ def test_required():
     assert validator.errors['date_field'] == DEFAULT_MESSAGES['required']
     assert validator.errors['time_field'] == DEFAULT_MESSAGES['required']
     assert validator.errors['datetime_field'] == DEFAULT_MESSAGES['required']
+
+
+def test_coerce_fails():
+    class TestValidator(Validator):
+        float_field = FloatField()
+        int_field = IntegerField(required=True)
+        decimal_field = DecimalField(required=True)
+        boolean_field = BooleanField()
+
+    validator = TestValidator()
+    data = {'int_field': 'a', 'float_field': 'a', 'decimal_field': 'a'}
+    valid = validator.validate(data)
+    assert not valid
+    assert validator.errors['decimal_field'] == DEFAULT_MESSAGES['coerce_decimal']
+    assert validator.errors['float_field'] == DEFAULT_MESSAGES['coerce_float']
+    assert validator.errors['int_field'] == DEFAULT_MESSAGES['coerce_int']
 
 
 def test_required_empty():
@@ -127,6 +150,37 @@ def test_dates_native():
     assert validator.data['datetime_field'] == datetime(2015, 1, 1, 15, 20)
     assert validator.data['date_field'] == date(2015, 1, 1)
     assert validator.data['time_field'] == time(15, 20)
+
+
+def test_date_coerce_fail():
+    class TestValidator(Validator):
+        date_field = DateField(required=True)
+        time_field = TimeField(required=True)
+        datetime_field = DateTimeField(required=True)
+
+    data = {
+        'date_field': 'failure',
+        'time_field': 'failure',
+        'datetime_field': 'failure',
+    }
+
+    validator = TestValidator()
+    valid = validator.validate(data)
+
+    assert not valid
+    assert validator.errors['datetime_field'] == DEFAULT_MESSAGES['coerce_datetime']
+    assert validator.errors['date_field'] == DEFAULT_MESSAGES['coerce_date']
+    assert validator.errors['time_field'] == DEFAULT_MESSAGES['coerce_time']
+
+
+def test_default():
+    class TestValidator(Validator):
+        str_field = StringField(required=True, default='timster')
+
+    validator = TestValidator()
+    valid = validator.validate()
+    assert valid
+    assert validator.data['str_field'] == 'timster'
 
 
 def test_callable_default():
