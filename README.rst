@@ -1,5 +1,5 @@
-Peewee Validates
-################
+peewee validates
+================
 
 A simple and flexible model and data validator for `Peewee ORM <http://docs.peewee-orm.com/>`_.
 
@@ -56,35 +56,23 @@ Here's a quick teaser of what you can do with peewee-validates:
 
     print(validator.errors)
 
-    # {'name': 'required field', 'code': 'must be unique'}
+    # {'name': 'This field is required.', 'code': 'Must be a unique value.'}
 
 In fact, there is also a generic validator that does not even require a model:
 
 .. code:: python
 
-    from peewee_validates import Validator, Field
+    from peewee_validates import Validator, StringField
 
     class SimpleValidator(Validator):
-        name = Field(str, required=True, max_length=250)
-        code = Field(str, required=True, max_length=4)
+        name = StringField(required=True, max_length=250)
+        code = StringField(required=True, max_length=4)
 
     validator = SimpleValidator(obj)
     validator.validate({'code': 'toolong'})
 
     print(validator.errors)
 
-    # {'name': 'required field', 'code': 'must be at most 5 characters'}
+    # {'name': 'This field is required.', 'code': 'Must be at most 5 characters.'}
 
-Check out the `Usage documentation <USAGE.rst>`_ for more details.
-
-Todo
-====
-
-* More documentation
-* More examples
-
-Feedback
-========
-
-This package is very immature. If you have any comments, suggestions, feedback, or issues, please
-feel free to send me a message or submit an issue on Github.
+Check out the `Full Documentation <http://peewee-validates.readthedocs.io>`_ for more details:

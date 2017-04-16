@@ -6,6 +6,7 @@ help:
 	@echo "install  install the package to the active Python's site-packages"
 	@echo "release  package and upload a release"
 	@echo "test     run tests quickly with the default Python"
+	@echo "docs     build documentation"
 
 clean:
 	rm -fr build/
@@ -33,3 +34,6 @@ release: clean
 
 test:
 	py.test
+
+docs:
+	sphinx-build -b html docs/ docs/_build/html

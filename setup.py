@@ -2,6 +2,8 @@ from setuptools import setup
 from codecs import open
 from os import path
 
+from peewee_validates import __version__
+
 root_dir = path.abspath(path.dirname(__file__))
 
 with open(path.join(root_dir, 'README.rst'), encoding='utf-8') as f:
@@ -10,10 +12,9 @@ with open(path.join(root_dir, 'README.rst'), encoding='utf-8') as f:
 with open(path.join(root_dir, 'requirements.txt'), encoding='utf-8') as f:
     install_requires = list(map(str.strip, f.readlines()))
 
-
 setup(
     name='peewee-validates',
-    version='0.6.3',
+    version=__version__,
 
     description='Simple and flexible model validator for Peewee ORM.',
     long_description=long_description,
