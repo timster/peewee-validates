@@ -52,6 +52,7 @@ DEFAULT_MESSAGES = {
 
 
 class ValidationError(Exception):
+    """An exception class that should be raised when a validation error occurs on data."""
     def __init__(self, key, *args, **kwargs):
         self.key = key
         self.kwargs = kwargs
@@ -59,6 +60,11 @@ class ValidationError(Exception):
 
 
 def validate_required():
+    """
+    Validate that a field is present in the data.
+
+    :raises: ``ValidationError('required')``
+    """
     def required_validator(field, data):
         if field.value is None:
             raise ValidationError('required')
@@ -66,6 +72,11 @@ def validate_required():
 
 
 def validate_not_empty():
+    """
+    Validate that a field is not empty (blank string).
+
+    :raises: ``ValidationError('empty')``
+    """
     def empty_validator(field, data):
         if isinstance(field.value, str) and not field.value.strip():
             raise ValidationError('empty')
@@ -73,6 +84,18 @@ def validate_not_empty():
 
 
 def validate_length(low=None, high=None, equal=None):
+    """
+    Validate the length of a field with either low, high, or equal.
+    Should work with anything that supports len().
+
+    :param low: Smallest length required.
+    :param high: Longest length required.
+    :param equal: Exact length required.
+    :raises: ``ValidationError('length_low')``
+    :raises: ``ValidationError('length_high')``
+    :raises: ``ValidationError('length_between')``
+    :raises: ``ValidationError('length_equal')``
+    """
     def length_validator(field, data):
         if equal is not None and len(field.value) != equal:
             raise ValidationError('length_equal', equal=equal)
@@ -86,6 +109,12 @@ def validate_length(low=None, high=None, equal=None):
 
 
 def validate_one_of(values):
+    """
+    Validate that a field is in one of the given values.
+
+    :param values: Iterable of valid values.
+    :raises: ``ValidationError('one_of')``
+    """
     def one_of_validator(field, data):
         options = values
         if callable(options):
@@ -96,6 +125,12 @@ def validate_one_of(values):
 
 
 def validate_none_of(values):
+    """
+    Validate that a field is not in one of the given values.
+
+    :param values: Iterable of invalid values.
+    :raises: ``ValidationError('none_of')``
+    """
     def none_of_validator(field, data):
         options = values
         if callable(options):
@@ -106,6 +141,16 @@ def validate_none_of(values):
 
 
 def validate_range(low=None, high=None):
+    """
+    Validate the range of a field with either low, high, or equal.
+    Should work with anything that supports '>' and '<' operators.
+
+    :param low: Smallest value required.
+    :param high: Longest value required.
+    :raises: ``ValidationError('range_low')``
+    :raises: ``ValidationError('range_high')``
+    :raises: ``ValidationError('range_between')``
+    """
     def range_validator(field, data):
         if not field.value:
             return
@@ -118,21 +163,43 @@ def validate_range(low=None, high=None):
     return range_validator
 
 
-def validate_equal(other):
+def validate_equal(value):
+    """
+    Validate the field value is equal to the given value.
+    Should work with anything that supports '==' operator.
+
+    :param value: Value to compare.
+    :raises: ``ValidationError('equal')``
+    """
     def equal_validator(field, data):
-        if field.value != other:
-            raise ValidationError('equal', other=other)
+        if not (field.value == value):
+            raise ValidationError('equal', other=value)
     return equal_validator
 
 
 def validate_matches(other):
+    """
+    Validate the field value is equal to another field in the data.
+    Should work with anything that supports '==' operator.
+
+    :param value: Field key to compare.
+    :raises: ``ValidationError('matches')``
+    """
     def matches_validator(field, data):
-        if field.value != data.get(other):
+        if not (field.value == data.get(other)):
             raise ValidationError('matches', other=other)
     return matches_validator
 
 
 def validate_regexp(pattern, flags=0):
+    """
+    Validate the field matches the given regular expression.
+    Should work with anything that supports '==' operator.
+
+    :param pattern: Regular expresion to match. String or regular expression instance.
+    :param pattern: Flags for the regular expression.
+    :raises: ``ValidationError('equal')``
+    """
     regex = re.compile(pattern, flags) if isinstance(pattern, str) else pattern
 
     def regexp_validator(field, data):
@@ -142,6 +209,20 @@ def validate_regexp(pattern, flags=0):
 
 
 def validate_function(method, **kwargs):
+    """
+    Validate the field matches the result of calling the given method. Example::
+
+        def myfunc(value, name):
+            return value == name
+
+        validator = validate_function(myfunc, name='tim')
+
+    Essentially creates a validator that only accepts the name 'tim'.
+
+    :param method: Method to call.
+    :param kwargs: Additional keyword arguments passed to the method.
+    :raises: ``ValidationError('function')``
+    """
     def function_validator(field, data):
         if not method(field.value, **kwargs):
             raise ValidationError('function', function=method.__name__)
@@ -149,6 +230,11 @@ def validate_function(method, **kwargs):
 
 
 def validate_email():
+    """
+    Validate the field is a valid email address.
+
+    :raises: ``ValidationError('email')``
+    """
     user_regex = re.compile(
         r"(^[-!#$%&'*+/=?^`{}|~\w]+(\.[-!#$%&'*+/=?^`{}|~\w]+)*$"
         r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]'
@@ -181,6 +267,19 @@ def validate_email():
 
 
 def validate_model_unique(lookup_field, queryset, pk_field=None, pk_value=None):
+    """
+    Validate the field is a unique, given a queryset and lookup_field. Example::
+
+        validator = validate_model_unique(User.email, User.select())
+
+    Creates a validator that can validate the uniqueness of an email address.
+
+    :param lookup_field: Peewee model field that should be used for checking existing values.
+    :param queryset: Queryset to use for lookup.
+    :param pk_field: Field instance to use when excluding existing instance.
+    :param pk_value: Field value to use when excluding existing instance.
+    :raises: ``ValidationError('unique')``
+    """
     def unique_validator(field, data):
         # If we have a PK, ignore it because it represents the current record.
         query = queryset.where(lookup_field == field.value)
@@ -203,6 +302,9 @@ def coerce_single_instance(lookup_field, value):
         value = <User id=123 name='tim'>
         returns = 123
     Otherwise the value is returned as-is.
+
+    :param lookup_field: Peewee model field used for getting name from value.
+    :param value: Some kind of value (usually a dict, Model instance, or scalar).
     """
     if isinstance(value, dict):
         return value.get(lookup_field.name)
@@ -212,7 +314,11 @@ def coerce_single_instance(lookup_field, value):
 
 
 def isiterable_notstring(value):
-    """Returns True if the value is iterable but not a string. Otherwise returns False."""
+    """
+    Returns True if the value is iterable but not a string. Otherwise returns False.
+
+    :param value: Value to check.
+    """
     if isinstance(value, str):
         return False
     return isinstance(value, Iterable) or isgeneratorfunction(value) or isgenerator(value)
@@ -566,10 +672,10 @@ class MetaValidator(type):
 
 class ValidatorOptions:
     def __init__(self, obj):
-        self.messages = {}
         self.fields = {}
-        self.only = ()
-        self.exclude = ()
+        self.messages = {}
+        self.only = []
+        self.exclude = []
 
 
 class Validator(metaclass=MetaValidator):
@@ -578,6 +684,15 @@ class Validator(metaclass=MetaValidator):
     """
 
     class Meta:
+        """
+        A meta class to specify options for the validator. Uses the following fields:
+
+            ``messages = {}``
+
+            ``only = []``
+
+            ``exclues = []``
+        """
         pass
 
     def __init__(self):
@@ -610,7 +725,9 @@ class Validator(metaclass=MetaValidator):
     def validate(self, data=None, only=None, exclude=None):
         """
         Validate the data for all fields and return whether the validation was successful.
-        This method also retains the data in `data` so that it can be accessed later.
+        This method also retains the validated data in ``self.data`` so that it can be accessed later.
+
+        This is usually the method you want to call after creating the validator instance.
 
         :param data: Dictionary of data to validate.
         :param only: List or tuple of fields to validate.
@@ -772,7 +889,13 @@ class ModelValidator(Validator):
 
     def validate(self, data=None, only=None, exclude=None):
         """
-        By default, use the value from the model instance and set that value in the data dict.
+        Validate the data for all fields and return whether the validation was successful.
+        This method also retains the validated data in ``self.data`` so that it can be accessed later.
+
+        If data for a field is not provided in ``data`` then this validator will check against the
+        provided model instance.
+
+        This is usually the method you want to call after creating the validator instance.
 
         :param data: Dictionary of data to validate.
         :param only: List or tuple of fields to validate.

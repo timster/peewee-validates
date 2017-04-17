@@ -1,30 +1,31 @@
-Usage
-#####
+Basic Validation
+================
 
-.. contents::
-
-Basic Validator
-===============
-
-The very basic usage is a validator that looks like this:
+The very basic usage is a validator class that looks like this:
 
 .. code:: python
 
-    from peewee_validates import Validator, Field, validate_required
+    from peewee_validates import Validator, StringField, validate_not_empty
 
     class SimpleValidator(Validator):
-        first_name = Field(str, validators=[validate_required()])
+        first_name = StringField(validators=[validate_not_empty()])
 
     validator = SimpleValidator()
 
 This tells us that we want to validate data for one field (first_name).
 
-Each field has an associated data type (or coersion). In this case, the field will be
-coerced to ``str``. Each field also has a list of data validators. That's about it.
+Each field has an associated data type. In this case, using StringField will coerce the input data
+to ``str``.
 
-When we call the ``validate()`` method on our validator, we pass the data that we want to
-validate. The result we get back is a bool indicating whether all validations passed.
-The validator then has two dicts: ``data`` and ``errors`` that you can check out to see what happened.
+After creating an instance of our valitdator, then we call the ``validate()`` method and
+pass the data that we want to validate. The result we get back is a boolean indicating whether
+all validations were successful.
+
+The validator then has two dictionaries that you mway want to access: ``data`` and ``errors``.
+
+``data`` is the input data that may have been mutated after validations.
+
+``errors`` is a dictionary of any error messages.
 
 .. code:: python
 
@@ -32,80 +33,82 @@ The validator then has two dicts: ``data`` and ``errors`` that you can check out
     validator.validate(data)
 
     print(validator.data)
+    # {}
+
     print(validator.errors)
+    # {'first_name': 'This field is required'}
 
-    # data = {}
-    # errors = {'first_name': 'required field'}
+In this case we can see that there was one error for ``first_name``.
+That's because we gave it the ``validate_not_empty()`` validator but did not pass any data for
+that field. Also notice that the ``data`` dict is empty because the validators did not pass.
 
-Both ``data`` and ``errors`` are plain ``dict`` instances. In this case we can see that
-there was one error for ``first_name``. That's because we gave it the ``validate_required()``
-validator but did not pass any data for that field.
-
-When we pass good data, the validation passes and the output data is populated:
+When we pass data that matches all validators, the ``errors`` dict will be empty and the ``data``
+dict will be populated:
 
 .. code:: python
 
     data = {'first_name': 'Tim'}
-    rv = validator.validate(data)
+    validator.validate(data)
 
     print(validator.data)
+    # {'first_name': 'Tim'}
+
     print(validator.errors)
+    # {}
 
-    # data = {'first_name': 'Tim'}
-    # errors = {}
+The ``data`` dict will contain the values after any validators, type coersions, and
+any other custom modifiers. Also notice that we are able to reuse the same validator instance
+while passing a new data dict.
 
-The data dictionary will contain the values after any validators, type coersions, and
-any other custom modifiers.
+Data Type Coersion
+------------------
 
-Data Coersion
-=============
+One of the first processes that happens when data validation takes place is data type coersion.
 
-One of the first processes that happens when data validation takes place is data coersion.
-This is the first argument that is passed to ``Field()``.
+There are a number of different fields built-in. Check out the full list in the API Documentation.
 
-The coersion method can be any method that accepts a value and returns a value. If the value
-cannot be coerced, it should raise some type of exception. Don't get too fancy with the logic
-in coersion, since the exception will be swallowed.
-
-Here's an example of a custom coersion method. This just duplicates the functionality of ``int``
-to show you an example.
+Here's an example of a field.
+This just duplicates the functionality of ``IntegerField`` to show you an as example.
 
 .. code:: python
 
-    def coerce_int(value):
-        return int(value)
+    class CustomIntegerField(Field):
+        def coerce(self, value):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                raise ValidationError('coerce_int')
 
     class SimpleValidator(Validator):
-        code = Field(coerce_int)
+        code = CustomIntegerField()
 
     validator = SimpleValidator()
     validator.validate({'code': 'text'})
 
-    print(validator.data)
-    print(validator.errors)
+    validator.data
+    # {}
 
-    # data = {}
-    # errors = {'code': 'invalid: coerce_coerce_int'}
+    validator.errors
+    # {'code': 'Must be a valid integer.'}
 
-That error message isn't very pretty, but I will show you later how to change that.
+Available Validators
+====================
 
-There are also several built-in coersions that you can call by name: date, time, and datetime.
-These use python-dateutils to try to coerce text to a date instance.
+There are a bunch of built-in validators that can be accessed by importing from ``peewee_validates``.
 
-.. code:: python
+* ``validate_email()`` - validate that data is an email address
+* ``validate_equal(value)`` - validate that data is equal to ``value``
+* ``validate_function(method, **kwargs)`` - runs ``method`` with field value as first argument and ``kwargs`` and alidates that the result is truthy
+* ``validate_length(low, high, equal)`` - validate that length is between ``low`` and ``high`` or equal to ``equal``
+* ``validate_none_of(values)`` - validate that value is not in ``values``. ``values`` can also be a callable that returns values when called
+* ``validate_not_empty()`` - validate that data is not empty
+* ``validate_one_of(values)`` - validate that value is in ``values``. ``values`` can also be a callable that returns values when called
+* ``validate_range(low, high)`` - validate that value is between ``low`` and ``high``
+* ``validate_regexp(pattern, flags=0)`` - validate that value matches ``patten``
+* ``validate_required()`` - validate that the field is present
 
-    class SimpleValidator(Validator):
-        birthday = Field('date')
-
-    validator = SimpleValidator()
-    validator.validate({'birthday': '22 jan 1980'})
-
-    print(validator.data)
-
-    # data = {'birthday': datetime.date(1980, 1, 22)}
-
-Field Validators
-================
+Custom Validators
+=================
 
 A field validator is just a method with the signature ``validator(field, data)`` where
 field is a ``Field`` instance and ``data`` is the data dict that is passed to ``validate()``.
@@ -120,78 +123,37 @@ like this:
             raise ValidationError('not_tim')
 
     class SimpleValidator(Validator):
-        name = Field(str, validators=[always_tim])
+        name = StringField(validators=[always_tim])
 
     validator = SimpleValidator()
     validator.validate({'name': 'bob'})
 
-    print(validator.errors)
+    validator.errors
+    # {'name': 'Validation failed.'}
 
-    # errors = {'name': 'invalid: not_tim'}
+That's not a very pretty error message, but I'll show you soon how to customize that.
 
 Now let's say you want to implement a validator that checks the length of the field.
 The length should be configurable. So we can implement a validator that accepts a parameter
-and returns the validator function. We basically wrap our actual validator function with
+and returns a validator function. We basically wrap our actual validator function with
 another function. That looks like this:
 
 .. code:: python
 
-    def length(value):
+    def length(max_length):
         def validator(field, data):
-            if field.value and len(field.value) > value:
+            if field.value and len(field.value) > max_length:
                 raise ValidationError('too_long')
         return validator
 
     class SimpleValidator(Validator):
-        name = Field(str, validators=[length(2)])
+        name = StringField(validators=[length(2)])
 
     validator = SimpleValidator()
     validator.validate({'name': 'bob'})
 
-    print(validator.errors)
-
-    # errors = {'name': 'invalid: too_long'}
-
-Available Validators
---------------------
-
-There are a bunch of built-in validators that can be accessed by importing from ``peewee_validates``.
-
-* ``validate_choices(values)`` - validate that value is in ``values``. ``values`` can also be a callable that returns values when called
-* ``validate_email()`` - validate that data is an email address
-* ``validate_equal(value)`` - validate that value is equal to ``value``
-* ``validate_exclude(values)`` - validate that value is not in ``values``. ``values`` can also be a callable that returns values when called
-* ``validate_function(method, **kwargs)`` - runs ``method`` with field value as first argument and ``kwargs``. Validates that the result is Truthy
-* ``validate_length(value)`` - validate that length is exactly ``value``
-* ``validate_max_length(value)`` - validate that length is less than ``value``
-* ``validate_min_length(value)`` - validate that length is at least ``value``
-* ``validate_range(low, high)`` - validate that value is between ``low`` and ``high``
-* ``validate_regexp(pattern, flags=0)`` - validate that value matches ``patten``
-* ``validate_required()`` - validate that data is entered
-
-Field API
-=========
-
-The full field API looks like this:
-
-.. code:: python
-
-    Field(coerce=None, default=None, required=False, max_length=None, min_length=None, choices=None, range=None, validators=None)
-
-We have already discussed ``coerce`` and ``validators``.
-
-``default`` is a value that will be used if no data is provided to the field. This can also be
-a callable that returns a value.
-
-The other remaining fields:  ``required``, ``max_length``, ``min_length``, ``choices``, ``range``
-are just shortcuts for the validators with the same name. So these two field declarations
-are functionally identical:
-
-.. code:: python
-
-    name = Field(str, required=True, max_length=200)
-
-    name = Field(str, validators=[validate_required(), validate_max_length(200)])
+    validator.errors
+    # {'name': 'Validation failed.'}
 
 Custom Error Messages
 =====================
@@ -205,29 +167,29 @@ The key is the first argument passed to ``ValidationError`` when an error is rai
 .. code:: python
 
     class SimpleValidator(Validator):
-        name = Field(str, required=True)
+        name = StringField(required=True)
 
         class Meta:
             messages = {
-                'required': 'please enter a value'
+                'required': 'Please enter a value.'
             }
 
 Now any field that is required will have the error message "please enter a value".
-We can also change this for specific fields:
+We can also change this for specific fields by prefixing with field name:
 
 .. code:: python
 
     class SimpleValidator(Validator):
-        name = Field(str, required=True)
-        color = Field(str, required=True)
+        name = StringField(required=True)
+        color = StringField(required=True)
 
         class Meta:
             messages = {
-                'name.required': 'enter your name',
-                'required': 'please enter a value',
+                'name.required': 'Enter your name.',
+                'required': 'Please enter a value.',
             }
 
-Now the ``name`` field will have the error message "enter your name" but all other
+Now the ``name`` field will have the error message "Enter your name." but all other
 required fields will use the other error message.
 
 Excluding/Limiting Fields
@@ -241,9 +203,9 @@ This will only validate the ``name`` and ``color`` fields when ``validate()`` is
 .. code:: python
 
     class SimpleValidator(Validator):
-        name = Field(str, required=True)
-        color = Field(str, required=True)
-        age = Field(int, required=True)
+        name = StringField(required=True)
+        color = StringField(required=True)
+        age = IntegerField(required=True)
 
         class Meta:
             only = ('name', 'color')
@@ -285,9 +247,22 @@ In this case, the ModelValidator has built a Validator class that looks like thi
 
 .. code:: python
 
+    unique_code_validator = validate_model_unique(
+        Category.code, Category.select(), pk_field=Category.id, pk_value=obj.id)
+
     class CategoryValidator(Validator):
-        code = peewee.Field(int, required=True, validators=[validate_unique])
-        name = peewee.Field(str, required=True, max_length=250)
+        code = peewee.IntegerField(
+            required=True,
+            validators=[unique_code_validator])
+        name = peewee.StringField(required=True, max_length=250)
+
+Notice the many things that have been defined in our model that have been automatically converted
+to validator attributes:
+
+* name is required string
+* name must be 250 character or less
+* code is required integer
+* code must be a unique value in the table
 
 We can then use the validator to validate data.
 
@@ -302,9 +277,8 @@ a dictionary to ``validates`` that will override any data on the instance.
     validator = ModelValidator(obj)
     validator.validate(data)
 
-    print(validator.errors)
-
-    # errors = {'code': 'must be a number'}
+    validator.errors
+    # {'code': 'Must be a valid integer.'}
 
 This fails validation because the data passed in was not a number, even though the data on the
 instance was valid.
@@ -320,25 +294,26 @@ shown already:
     class CategoryValidator(ModelValidator):
         class Meta:
             messages = {
-                'name.required': 'enter your name',
-                'required': 'please enter a value',
+                'name.required': 'Enter your name.',
+                'required': 'Please enter a value.',
             }
 
     validator = ModelValidator(obj)
     validator.validate(data)
 
-When validations is successful for ModelValidator, the resulting data will be the model
-instance with updated data instead of a dict. A new instance is not created.
-It's the same instance we passed to ModelValidator, just mutated.
+When validations is successful for ModelValidator, the given model instance will have been mutated.
 
 .. code:: python
 
     validator = ModelValidator(obj)
-    validator.validate(data)
 
-    print(validator.data)
+    obj.name
+    # 'tim'
 
-    # data = <models.Category object at 0x10ff825f8>
+    validator.validate({'name': 'newname'})
+
+    obj.name
+    # 'newname'
 
 Field Validations
 -----------------
@@ -346,7 +321,7 @@ Field Validations
 Using the ModelValidator provides a couple extra goodies that are not found in the standard
 Validator class.
 
-**Unique**
+**Uniqueness**
 
 If the Peewee field was defined with ``unique=True`` then a validator will be added to the
 field that will look up the value in the database to make sure it's unique. This is smart enough
@@ -355,7 +330,12 @@ to know to exclude the current instance if it has already been saved to the data
 **Foreign Key**
 
 If the Peewee field is a ``ForeignKeyField`` then a validator will be added to the field
-that will look up the value in the related table to make sure it's valid.
+that will look up the value in the related table to make sure it's a valid instance.
+
+**Many to Many**
+
+If the Peewee field is a ``ManyToManyField`` then a validator will be added to the field
+that will look up the values in the related table to make sure it's valid list of instances.
 
 **Index Validation**
 
@@ -389,7 +369,7 @@ This would generate a field for ``code`` with a required validator.
 .. code:: python
 
     class CategoryValidator(ModelValidator):
-        code = Field(int, required=False)
+        code = IntegerField(required=False)
 
     validator = CategoryValidator(category)
     validator.validate()
@@ -409,8 +389,8 @@ method to perform any validations you like, or mutate the data before returning 
 .. code:: python
 
     class MyValidator(Validator):
-        name1 = Field(str)
-        name2 = Field(str)
+        name1 = StringField()
+        name2 = StringField()
 
         def clean(self, data):
             # make sure name1 is the same as name2
@@ -423,7 +403,7 @@ method to perform any validations you like, or mutate the data before returning 
 
         class Meta:
             messages = {
-                'name_different': 'the names should be the same'
+                'name_different': 'The names should be the same.'
             }
 
 Adding Fields Dynamically
@@ -435,39 +415,4 @@ They are stored in the ``_meta.fields`` dict, which you can manipulate as much a
 .. code:: python
 
     validator = MyValidator()
-    validator._meta.fields['newfield'] = Field(int, required=True)
-
-Custom Fields
--------------
-
-Adding a custom field is as simple as subclassing ``Field`` and overriding the methods
-you need to:
-
-.. code:: python
-
-    class NameField(Field):
-
-        def get_value(self, data):
-            """
-            Get the raw value from the data dict.
-            By default this does the following:
-            """
-            if self.name in data:
-                return data.get(self.name)
-            if callable(self.default):
-                return self.default()
-            return self.default
-
-        def to_python(self, value):
-            """
-            Coerce the value from raw value to python value.
-            By default this is where the coerce method is called.
-            """
-            try:
-                value = str(value)
-            except:
-                raise ValidationError('str')
-            return value.lower()
-
-    class MyValidator(Validator):
-        name1 = NameField(str)
+    validator._meta.fields['newfield'] = IntegerField(required=True)

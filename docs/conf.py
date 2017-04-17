@@ -11,7 +11,11 @@ copyright = 'Tim Shaffer'
 version = __version__
 release = __version__
 
-extensions = []
+extensions = [
+    'sphinx.ext.autodoc',
+]
+
+add_module_names = False
 
 # templates_path = ['_templates']
 
@@ -23,7 +27,7 @@ exclude_patterns = ['_build']
 
 pygments_style = 'pastie'
 
-html_theme = 'default'
+html_theme = 'sphinx_rtd_theme'
 
 # html_static_path = ['_static']
 

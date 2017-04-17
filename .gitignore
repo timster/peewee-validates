@@ -1,6 +1,7 @@
 # project files
 .idea
 .codeintel
+.vscode
 *.sublime-project
 *.sublime-workspace
 

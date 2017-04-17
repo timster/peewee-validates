@@ -20,14 +20,14 @@ A simple and flexible model and data validator for `Peewee ORM <http://docs.peew
     :alt: Downloads
 
 Requirements
-============
+------------
 
 * python >= 3.3
 * peewee >= 2.8.0
 * python-dateutil >= 2.5.0
 
 Installation
-============
+------------
 
 This package can be installed using pip:
 
@@ -36,7 +36,7 @@ This package can be installed using pip:
     pip install peewee-validates
 
 Usage
-=====
+-----
 
 Here's a quick teaser of what you can do with peewee-validates:
 
@@ -75,4 +75,7 @@ In fact, there is also a generic validator that does not even require a model:
 
     # {'name': 'This field is required.', 'code': 'Must be at most 5 characters.'}
 
-Check out the `Full Documentation <http://peewee-validates.readthedocs.io>`_ for more details:
+Documentation
+-------------
+
+Check out the `Full Documentation <http://peewee-validates.readthedocs.io>`_ for more details.
