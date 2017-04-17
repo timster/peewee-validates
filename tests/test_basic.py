@@ -238,12 +238,16 @@ def test_choices():
 
     validator = TestValidator()
     valid = validator.validate()
-    assert not valid
-    assert validator.errors['first_name'] == DEFAULT_MESSAGES['one_of'].format(choices='tim, bob')
+    assert valid
 
     validator = TestValidator()
     valid = validator.validate({'first_name': 'tim'})
     assert valid
+
+    validator = TestValidator()
+    valid = validator.validate({'first_name': 'asdf'})
+    assert not valid
+    assert validator.errors['first_name'] == DEFAULT_MESSAGES['one_of'].format(choices='tim, bob')
 
 
 def test_exclude():

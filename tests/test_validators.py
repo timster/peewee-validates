@@ -20,140 +20,151 @@ field = StringField()
 def test_validate_required():
     validator = validate_required()
 
-    field.value = None
-    with pytest.raises(ValidationError):
+    for value in (None,):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
+
+    for value in ('okay', '', '  '):
+        field.value = value
         validator(field, {})
-
-    field.value = 'okay'
-    validator(field, {})
-
-    field.value = ''
-    validator(field, {})
 
 
 def test_validate_not_empty():
     validator = validate_not_empty()
 
-    field.value = ''
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in ('', '  '):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
 
-    field.value = '  '
-    with pytest.raises(ValidationError):
+    for value in (None, 'alright', '123'):
+        field.value = value
         validator(field, {})
-
-    field.value = 'okay'
-    validator(field, {})
 
 
 def test_validate_length():
     validator = validate_length(low=2, high=None, equal=None)
 
-    field.value = '1'
-    with pytest.raises(ValidationError):
+    for value in ('1', [1]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
+
+    for value in (None, '22', 'longer', [1, 2]):
+        field.value = value
         validator(field, {})
 
     validator = validate_length(low=None, high=2, equal=None)
 
-    field.value = '123'
-    with pytest.raises(ValidationError):
+    for value in ('123', [1, 2, 3]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
+
+    for value in (None, '22', '', [1, 2]):
+        field.value = value
         validator(field, {})
 
     validator = validate_length(low=None, high=None, equal=2)
 
-    field.value = '123'
-    with pytest.raises(ValidationError):
+    for value in ('242', '', [1, 2, 3]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
+
+    for value in (None, '22', [1, 2]):
+        field.value = value
         validator(field, {})
 
     validator = validate_length(low=2, high=4, equal=None)
 
-    field.value = '1'
-    with pytest.raises(ValidationError):
+    for value in ('1', '', [1, 2, 3, 4, 5]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
+
+    for value in (None, '22', '2222', [1, 2]):
+        field.value = value
         validator(field, {})
-
-    field.value = '12345'
-    with pytest.raises(ValidationError):
-        validator(field, {})
-
-    field.value = '1234'
-    validator(field, {})
-
-    field.value = (1, 2, 3, 4)
-    validator(field, {})
 
 
 def test_validate_one_of():
     validator = validate_one_of(('a', 'b', 'c'))
 
-    field.value = 'd'
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in ('1', '', [1, 2, 3, 4, 5]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
 
-    field.value = 'a'
-    validator(field, {})
+    for value in (None, 'a', 'b', 'c'):
+        field.value = value
+        validator(field, {})
 
 
 def test_validate_none_of():
     validator = validate_none_of(('a', 'b', 'c'))
 
-    field.value = 'a'
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in ('a', 'b', 'c'):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
 
-    field.value = 'd'
-    validator(field, {})
+    for value in (None, '1', '', [1, 2, 3, 4, 5]):
+        field.value = value
+        validator(field, {})
 
 
 def test_validate_range():
     validator = validate_range(low=10, high=100)
 
-    field.value = 8
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in (8, 800):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
 
-    field.value = 800
-    with pytest.raises(ValidationError):
+    for value in (None, 10, 100):
+        field.value = value
         validator(field, {})
-
-    field.value = 50
-    validator(field, {})
 
 
 def test_validate_equal():
     validator = validate_equal('yes')
 
-    field.value = 'no'
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in ('no', 100):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {})
 
-    field.value = 'yes'
-    validator(field, {})
+    for value in (None, 'yes'):
+        field.value = value
+        validator(field, {})
 
 
 def test_validate_matches():
     validator = validate_matches('other')
 
-    field.value = 'no'
-    with pytest.raises(ValidationError):
-        validator(field, {'other': 'yes'})
+    for value in ('no', 100):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {'other': 'yes'})
 
-    field.value = 'yes'
-    validator(field, {'other': 'yes'})
+    for value in (None, 'yes'):
+        field.value = value
+        validator(field, {'other': 'yes'})
 
 
 def test_validate_regexp():
     validator = validate_regexp('^[a-z]{3}$', flags=0)
 
-    field.value = '123'
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in ('123', 'abcd', [123, 123]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {'other': 'yes'})
 
-    field.value = 'abcd'
-    with pytest.raises(ValidationError):
-        validator(field, {})
-
-    field.value = 'abc'
-    validator(field, {})
+    for value in (None, 'yes', 'abc'):
+        field.value = value
+        validator(field, {'other': 'yes'})
 
 
 def test_validate_function():
@@ -162,31 +173,24 @@ def test_validate_function():
 
     validator = validate_function(verify, check='tim')
 
-    field.value = 'abcd'
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in ('123', 'abcd', [123, 123]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {'other': 'yes'})
 
-    field.value = 'tim'
-    validator(field, {})
+    for value in (None, 'tim'):
+        field.value = value
+        validator(field, {'other': 'yes'})
 
 
 def test_validate_email():
     validator = validate_email()
 
-    field.value = 'bad'
-    with pytest.raises(ValidationError):
-        validator(field, {})
+    for value in ('bad', '())@asdfsd.com', 'tim@().com', [123, 123]):
+        field.value = value
+        with pytest.raises(ValidationError):
+            validator(field, {'other': 'yes'})
 
-    field.value = '())@asdfsd.com'
-    with pytest.raises(ValidationError):
-        validator(field, {})
-
-    field.value = 'tim@().com'
-    with pytest.raises(ValidationError):
-        validator(field, {})
-
-    field.value = 'tim@example.com'
-    validator(field, {})
-
-    field.value = 'tim@localhost'
-    validator(field, {})
+    for value in (None, 'tim@example.com', 'tim@localhost'):
+        field.value = value
+        validator(field, {'other': 'yes'})

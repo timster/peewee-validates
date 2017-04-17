@@ -97,6 +97,8 @@ def validate_length(low=None, high=None, equal=None):
     :raises: ``ValidationError('length_equal')``
     """
     def length_validator(field, data):
+        if field.value is None:
+            return
         if equal is not None and len(field.value) != equal:
             raise ValidationError('length_equal', equal=equal)
         if low is not None and len(field.value) < low:
@@ -116,6 +118,8 @@ def validate_one_of(values):
     :raises: ``ValidationError('one_of')``
     """
     def one_of_validator(field, data):
+        if field.value is None:
+            return
         options = values
         if callable(options):
             options = options()
@@ -152,7 +156,7 @@ def validate_range(low=None, high=None):
     :raises: ``ValidationError('range_between')``
     """
     def range_validator(field, data):
-        if not field.value:
+        if field.value is None:
             return
         if low is not None and field.value < low:
             key = 'range_low' if high is None else 'range_between'
@@ -172,6 +176,8 @@ def validate_equal(value):
     :raises: ``ValidationError('equal')``
     """
     def equal_validator(field, data):
+        if field.value is None:
+            return
         if not (field.value == value):
             raise ValidationError('equal', other=value)
     return equal_validator
@@ -186,6 +192,8 @@ def validate_matches(other):
     :raises: ``ValidationError('matches')``
     """
     def matches_validator(field, data):
+        if field.value is None:
+            return
         if not (field.value == data.get(other)):
             raise ValidationError('matches', other=other)
     return matches_validator
@@ -203,7 +211,9 @@ def validate_regexp(pattern, flags=0):
     regex = re.compile(pattern, flags) if isinstance(pattern, str) else pattern
 
     def regexp_validator(field, data):
-        if field.value and regex.match(str(field.value)) is None:
+        if field.value is None:
+            return
+        if regex.match(str(field.value)) is None:
             raise ValidationError('regexp', pattern=pattern)
     return regexp_validator
 
@@ -224,6 +234,8 @@ def validate_function(method, **kwargs):
     :raises: ``ValidationError('function')``
     """
     def function_validator(field, data):
+        if field.value is None:
+            return
         if not method(field.value, **kwargs):
             raise ValidationError('function', function=method.__name__)
     return function_validator
@@ -249,10 +261,15 @@ def validate_email():
     domain_whitelist = ('localhost',)
 
     def email_validator(field, data):
-        if field.value and '@' not in field.value:
+        if field.value is None:
+            return
+
+        value = str(field.value)
+
+        if '@' not in value:
             raise ValidationError('email')
 
-        user_part, domain_part = field.value.rsplit('@', 1)
+        user_part, domain_part = value.rsplit('@', 1)
 
         if not user_regex.match(user_part):
             raise ValidationError('email')
