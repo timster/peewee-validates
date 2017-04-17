@@ -15,3 +15,8 @@ Contents
    api
    changelog
 
+
+License
+=======
+
+.. include:: ../LICENSE
