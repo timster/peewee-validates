@@ -349,6 +349,9 @@ class Field:
     :param default: Default value to be used if no incoming value is provided.
     :param validators: List of validator functions to run.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, default=None, validators=None):
         self.default = default
         self.value = None
@@ -415,6 +418,9 @@ class StringField(Field):
     :param max_length: Maximum length that should be enfocred.
     :param min_length: Minimum length that should be enfocred.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, max_length=None, min_length=None, default=None, validators=None):
         validators = validators or []
         if max_length or min_length:
@@ -435,6 +441,9 @@ class FloatField(Field):
     :param low: Lowest value that should be enfocred.
     :param high: Highest value that should be enfocred.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, low=None, high=None, default=None, validators=None):
         validators = validators or []
         if low or high:
@@ -458,6 +467,9 @@ class IntegerField(Field):
     :param low: Lowest value that should be enfocred.
     :param high: Highest value that should be enfocred.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, low=None, high=None, default=None, validators=None):
         validators = validators or []
         if low or high:
@@ -481,6 +493,9 @@ class DecimalField(Field):
     :param low: Lowest value that should be enfocred.
     :param high: Highest value that should be enfocred.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, low=None, high=None, default=None, validators=None):
         validators = validators or []
         if low or high:
@@ -506,6 +521,9 @@ class DateField(Field):
     :param low: Lowest value that should be enfocred.
     :param high: Highest value that should be enfocred.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, low=None, high=None, default=None, validators=None):
         validators = validators or []
         if low or high:
@@ -533,6 +551,9 @@ class TimeField(Field):
     :param low: Lowest value that should be enfocred.
     :param high: Highest value that should be enfocred.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, low=None, high=None, default=None, validators=None):
         validators = validators or []
         if low or high:
@@ -560,6 +581,9 @@ class DateTimeField(Field):
     :param low: Lowest value that should be enfocred.
     :param high: Highest value that should be enfocred.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     def __init__(self, required=False, low=None, high=None, default=None, validators=None):
         validators = validators or []
         if low or high:
@@ -582,6 +606,9 @@ class BooleanField(Field):
     values which are considered False: ('0', '{}', 'none', 'false')
     And everything else is True.
     """
+
+    __slots__ = ('value', 'required', 'default', 'validators')
+
     false_values = ('0', '{}', '[]', 'none', 'false')
 
     def coerce(self, value):
@@ -595,6 +622,8 @@ class ModelChoiceField(Field):
     :param query: Query to use for lookup.
     :param lookup_field: Field that will be queried for the value.
     """
+
+    __slots__ = ('query', 'lookup_field', 'value', 'required', 'default', 'validators')
 
     def __init__(self, query, lookup_field, required=False, **kwargs):
         self.query = query
@@ -628,6 +657,8 @@ class ManyModelChoiceField(Field):
     :param query: Query to use for lookup.
     :param lookup_field: Field that will be queried for the value.
     """
+
+    __slots__ = ('query', 'lookup_field', 'value', 'required', 'default', 'validators')
 
     def __init__(self, query, lookup_field, required=False, **kwargs):
         self.query = query
@@ -691,6 +722,8 @@ class Validator(metaclass=MetaValidator):
             ``exclues = []``
         """
         pass
+
+    __slots__ = ('data', 'errors', '_meta')
 
     def __init__(self):
         self.errors = {}
@@ -798,6 +831,9 @@ class ModelValidator(Validator):
 
     :param instance: Peewee model instance to use for data lookups and field generation.
     """
+
+    __slots__ = ('data', 'errors', '_meta', 'instance', 'pk_field', 'pk_value')
+
     FIELD_MAP = {
         'smallint': IntegerField,
         'bigint': IntegerField,
