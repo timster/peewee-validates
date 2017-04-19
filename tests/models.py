@@ -53,7 +53,7 @@ class ComplexPerson(Person):
         database = database
         indexes = (
             (('gender', 'name'), True),
-            (('name', 'organization'), False),
+            (('name', 'organization'), True),
         )
 
 

@@ -931,10 +931,11 @@ class ModelValidator(Validator):
             except (ValueError, peewee.DoesNotExist):
                 data.setdefault(name, self.instance._data.get(name, None))
 
+        # This will set self.data which we should use from now on.
         super().validate(data=data, only=only, exclude=exclude)
 
         if not self.errors:
-            self.perform_index_validation(data)
+            self.perform_index_validation(self.data)
 
         return (not self.errors)
 

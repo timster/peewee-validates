@@ -1,6 +1,10 @@
 Changelog
 #########
 
+1.0.2
+=====
+- Fixed issue when passing dicts and validating unique indexes.
+
 1.0.1
 =====
 - Fixed issue where ``None`` values were failing validators.
