@@ -659,32 +659,12 @@ class ManyModelChoiceField(Field):
 
 
 class MetaValidator(type):
-    def __new__(mcs, name, bases, attrs):
-        """
-        Collect all the fields from this class and merge them with all the fields from
-        the parent classes.
-        """
-        # Collect fields from current class.
-        current_fields = {}
-        for key, value in list(attrs.items()):
-            if isinstance(value, Field):
-                current_fields[key] = value
-                attrs.pop(key)
-        attrs['declared_fields'] = current_fields
-
-        new_class = super().__new__(mcs, name, bases, attrs)
-
-        # Walk through the MRO.
-        declared_fields = {}
-        for base in reversed(new_class.__mro__):
-            # Collect fields from base class.
-            if hasattr(base, 'declared_fields'):
-                declared_fields.update(base.declared_fields)
-
-        new_class.base_fields = declared_fields
-        new_class.declared_fields = declared_fields
-
-        return new_class
+    def __init__(cls, name, bases, attrs):
+        cls.base_fields = {}
+        for field in dir(cls):
+            obj = getattr(cls, field)
+            if isinstance(obj, Field):
+                cls.base_fields[field] = obj
 
 
 class ValidatorOptions:
