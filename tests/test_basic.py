@@ -446,3 +446,20 @@ def test_custom_messages():
     assert validator.errors['field1'] == 'enter value'
     assert validator.errors['field2'] == 'field2 required'
     assert validator.errors['field3'] == 'pick a number'
+
+
+def test_subclass():
+    class ParentValidator(Validator):
+        field1 = StringField(required=True)
+        field2 = StringField(required=False)
+
+    class TestValidator(ParentValidator):
+        field2 = StringField(required=True)
+        field3 = StringField(required=True)
+
+    validator = TestValidator()
+    valid = validator.validate({})
+    assert not valid
+    assert validator.errors['field1'] == DEFAULT_MESSAGES['required']
+    assert validator.errors['field2'] == DEFAULT_MESSAGES['required']
+    assert validator.errors['field3'] == DEFAULT_MESSAGES['required']
