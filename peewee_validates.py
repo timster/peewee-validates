@@ -2,7 +2,6 @@
 
 import datetime
 import re
-from copy import deepcopy
 from decimal import Decimal
 from decimal import InvalidOperation
 from inspect import isgeneratorfunction
@@ -689,15 +688,6 @@ class ManyModelChoiceField(Field):
                 raise ValidationError('related', field=self.lookup_field.name, values=self.value)
 
 
-class MetaValidator(type):
-    def __init__(cls, name, bases, attrs):
-        cls.base_fields = {}
-        for field in dir(cls):
-            obj = getattr(cls, field)
-            if isinstance(obj, Field):
-                cls.base_fields[field] = obj
-
-
 class ValidatorOptions:
     def __init__(self, obj):
         self.fields = {}
@@ -706,7 +696,7 @@ class ValidatorOptions:
         self.exclude = []
 
 
-class Validator(metaclass=MetaValidator):
+class Validator:
     """
     A validator class. Can have many fields attached to it to perform validation on data.
     """
@@ -750,7 +740,10 @@ class Validator(metaclass=MetaValidator):
 
         :return: None
         """
-        self._meta.fields.update(deepcopy(self.base_fields))
+        for field in dir(self):
+            obj = getattr(self, field)
+            if isinstance(obj, Field):
+                self._meta.fields[field] = obj
 
     def validate(self, data=None, only=None, exclude=None):
         """
