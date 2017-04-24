@@ -451,7 +451,7 @@ class FloatField(Field):
 
     def coerce(self, value):
         try:
-            return float(value)
+            return float(value) if value else None
         except (TypeError, ValueError):
             raise ValidationError('coerce_float')
 
@@ -477,7 +477,7 @@ class IntegerField(Field):
 
     def coerce(self, value):
         try:
-            return int(value)
+            return int(value) if value else None
         except (TypeError, ValueError):
             raise ValidationError('coerce_int')
 
@@ -503,7 +503,7 @@ class DecimalField(Field):
 
     def coerce(self, value):
         try:
-            return Decimal(value)
+            return Decimal(value) if value else None
         except (TypeError, ValueError, InvalidOperation):
             raise ValidationError('coerce_decimal')
 

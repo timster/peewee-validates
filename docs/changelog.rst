@@ -1,6 +1,10 @@
 Changelog
 #########
 
+1.0.3
+=====
+- Fixed issue coercing numeric fields.
+
 1.0.2
 =====
 - Fixed issue when passing dicts and validating unique indexes.
