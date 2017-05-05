@@ -12,7 +12,7 @@ import peewee
 from dateutil.parser import parse as dateutil_parse
 from playhouse.fields import ManyToManyField
 
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
 __all__ = [
     'Field', 'Validator', 'ModelValidator', 'ValidationError', 'StringField', 'FloatField',
@@ -683,7 +683,9 @@ class ManyModelChoiceField(Field):
         super().validate(name, data)
         if self.value is not None:
             try:
-                self.value = [self.query.get(self.lookup_field == v) for v in self.value if v]
+                # self.query could be a query like "User.select()" or a model like "User"
+                # so ".select().where()" handles both cases.
+                self.value = [self.query.select().where(self.lookup_field == v).get() for v in self.value if v]
             except (AttributeError, ValueError, peewee.DoesNotExist):
                 raise ValidationError('related', field=self.lookup_field.name, values=self.value)
 
@@ -870,6 +872,8 @@ class ModelValidator(Validator):
             field = getattr(type(self.instance), name, None)
             if isinstance(field, ManyToManyField):
                 self._meta.fields[name] = self.convert_field(name, field)
+
+        super().initialize_fields()
 
     def convert_field(self, name, field):
         """

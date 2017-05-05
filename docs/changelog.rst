@@ -1,6 +1,10 @@
 Changelog
 #########
 
+1.0.4
+=====
+- Fixed issue with ModelValidator field overrides.
+
 1.0.3
 =====
 - Fixed issue coercing numeric fields.
