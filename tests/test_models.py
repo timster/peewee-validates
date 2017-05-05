@@ -3,6 +3,7 @@ import pytest
 from peewee_validates import DEFAULT_MESSAGES
 from peewee_validates import ModelValidator
 from peewee_validates import ValidationError
+from peewee_validates import ManyModelChoiceField
 
 from tests.models import BasicFields
 from tests.models import ComplexPerson
@@ -288,3 +289,26 @@ def test_m2m_save_blank():
     validator.save()
 
     assert obj.id
+
+
+def test_overrides():
+
+    class CustomValidator(ModelValidator):
+        students = ManyModelChoiceField(Student.select(), Student.name)
+
+    Student.create(name='tim')
+    Student.create(name='bob')
+
+    obj = Course.create(name='course1')
+
+    validator = CustomValidator(obj)
+
+    data = {'students': [{'name': 'tim'}, 'bob']}
+    valid = validator.validate(data)
+    print(validator.errors)
+    assert valid
+
+    validator.save()
+
+    assert obj.id
+    assert len(obj.students) == 2
