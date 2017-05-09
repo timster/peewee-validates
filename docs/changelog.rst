@@ -1,6 +1,10 @@
 Changelog
 #########
 
+1.0.5
+=====
+- Fixed issue with converting DecimalField.
+
 1.0.4
 =====
 - Fixed issue with ModelValidator field overrides.
