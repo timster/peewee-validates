@@ -371,25 +371,6 @@ class Field:
         """
         return value
 
-    def get_value(self, name, data):
-        """
-        Get the value of this field from the data.
-        If there is a problem with the data, raise ValidationError.
-
-        :param name: Name of this field (to retrieve from data).
-        :param data: Dictionary of data for all fields.
-        :raises: ValidationError
-        :return: The value of this field.
-        :rtype: any
-        """
-        if name in data:
-            return data.get(name)
-        if self.default:
-            if callable(self.default):
-                return self.default()
-            return self.default
-        return None
-
     def validate(self, name, data):
         """
         Check to make sure ths data for this field is valid.
@@ -400,7 +381,9 @@ class Field:
         :param data: Dictionary of data for all fields.
         :raises: ValidationError
         """
-        self.value = self.get_value(name, data)
+        if name not in data:
+            return
+        self.value = data[name]
         if self.value is not None:
             self.value = self.coerce(self.value)
         for method in self.validators:
@@ -884,11 +867,24 @@ class ModelValidator(Validator):
         :return: Validator field.
         """
         pwv_field = ModelValidator.FIELD_MAP.get(field.get_db_field(), StringField)
+        default = getattr(field, 'default', None)
+        validators = self.get_validators(field)
+        if isinstance(field, peewee.ForeignKeyField):
+            return ModelChoiceField(
+                field.rel_model, field.to_field,
+                default=default, validators=validators)
 
+        if isinstance(field, ManyToManyField):
+            return ManyModelChoiceField(
+                field.rel_model, field.rel_model._meta.primary_key,
+                default=default, validators=validators)
+
+        return pwv_field(default=default, validators=validators)
+
+    def get_validators(self, field):
         validators = []
         required = not bool(getattr(field, 'null', True))
         choices = getattr(field, 'choices', ())
-        default = getattr(field, 'default', None)
         max_length = getattr(field, 'max_length', None)
         unique = getattr(field, 'unique', False)
 
@@ -904,18 +900,7 @@ class ModelValidator(Validator):
         if unique:
             validators.append(validate_model_unique(
                 field, self.instance.select(), self.pk_field, self.pk_value))
-
-        if isinstance(field, peewee.ForeignKeyField):
-            return ModelChoiceField(
-                field.rel_model, field.to_field,
-                default=default, validators=validators)
-
-        if isinstance(field, ManyToManyField):
-            return ManyModelChoiceField(
-                field.rel_model, field.rel_model._meta.primary_key,
-                default=default, validators=validators)
-
-        return pwv_field(default=default, validators=validators)
+        return validators
 
     def validate(self, data=None, only=None, exclude=None):
         """
@@ -1005,3 +990,37 @@ class ModelValidator(Validator):
             setattr(self.instance, field, value)
 
         return rv
+
+
+class FormatValidator(ModelValidator):
+    """
+    only validate if the format of the given data is valid
+    """
+    def validate(self, data=None, only=None, exclude=None):
+        data = data or {}
+        only = only or self._meta.only
+        exclude = exclude or self._meta.exclude
+
+        for name, field in self.instance._meta.fields.items():
+            if name in exclude or (only and name not in only):
+                del data[name]
+        # This will set self.data which we should use from now on.
+        super(ModelValidator, self).validate(data=data, only=only, exclude=exclude)
+
+        return (not self.errors)
+
+    def get_validators(self, field):
+        validators = []
+        required = not bool(getattr(field, 'null', True))
+        choices = getattr(field, 'choices', ())
+        max_length = getattr(field, 'max_length', None)
+
+        if required:
+            validators.append(validate_required())
+
+        if choices:
+            validators.append(validate_one_of([c[0] for c in choices]))
+
+        if max_length:
+            validators.append(validate_length(high=max_length))
+        return validators
