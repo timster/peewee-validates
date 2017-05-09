@@ -835,7 +835,7 @@ class ModelValidator(Validator):
         'bool': BooleanField,
         'date': DateField,
         'datetime': DateTimeField,
-        'decimal': Decimal,
+        'decimal': DecimalField,
         'double': FloatField,
         'float': FloatField,
         'int': IntegerField,
