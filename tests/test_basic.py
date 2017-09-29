@@ -67,6 +67,7 @@ def test_integerfield():
     valid = validator.validate(data)
     assert valid
 
+
 def test_coerce_fails():
     class TestValidator(Validator):
         float_field = FloatField()
@@ -257,6 +258,15 @@ def test_choices():
     valid = validator.validate({'first_name': 'asdf'})
     assert not valid
     assert validator.errors['first_name'] == DEFAULT_MESSAGES['one_of'].format(choices='tim, bob')
+
+
+def test_choices_integers():
+    class TestValidator(Validator):
+        int_field = IntegerField(validators=[validate_one_of((1, 2, 3))])
+
+    validator = TestValidator()
+    valid = validator.validate({'int_field': 4})
+    assert not valid
 
 
 def test_exclude():

@@ -123,7 +123,7 @@ def validate_one_of(values):
         if callable(options):
             options = options()
         if field.value not in options:
-            raise ValidationError('one_of', choices=str.join(', ', options))
+            raise ValidationError('one_of', choices=', '.join(map(str, options)))
     return one_of_validator
 
 
