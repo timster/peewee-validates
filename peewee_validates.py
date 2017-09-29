@@ -12,7 +12,7 @@ import peewee
 from dateutil.parser import parse as dateutil_parse
 from playhouse.fields import ManyToManyField
 
-__version__ = '1.0.4'
+__version__ = '1.0.5'
 
 __all__ = [
     'Field', 'Validator', 'ModelValidator', 'ValidationError', 'StringField', 'FloatField',
