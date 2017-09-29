@@ -1,6 +1,11 @@
 Changelog
 #########
 
+1.0.6
+=====
+- Fixed issue with converting IntegerField.
+- Fixed issue with using a list of non-string in one_of_validator.
+
 1.0.5
 =====
 - Fixed issue with converting DecimalField.
