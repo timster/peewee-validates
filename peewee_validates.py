@@ -477,7 +477,7 @@ class IntegerField(Field):
 
     def coerce(self, value):
         try:
-            return int(value) if value else None
+            return int(value) if value is not None else None
         except (TypeError, ValueError):
             raise ValidationError('coerce_int')
 

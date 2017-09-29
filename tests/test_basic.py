@@ -58,6 +58,15 @@ def test_required():
     assert validator.errors['datetime_field'] == DEFAULT_MESSAGES['required']
 
 
+def test_integerfield():
+    class TestValidator(Validator):
+        int_field = IntegerField(required=True)
+
+    data = {'int_field': 0}
+    validator = TestValidator()
+    valid = validator.validate(data)
+    assert valid
+
 def test_coerce_fails():
     class TestValidator(Validator):
         float_field = FloatField()
