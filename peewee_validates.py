@@ -10,9 +10,12 @@ from collections import Iterable
 
 import peewee
 from dateutil.parser import parse as dateutil_parse
-from playhouse.fields import ManyToManyField
+try:
+    from playhouse.fields import ManyToManyField
+except ImportError:
+    from peewee import ManyToManyField
 
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 
 __all__ = [
     'Field', 'Validator', 'ModelValidator', 'ValidationError', 'StringField', 'FloatField',
