@@ -1,6 +1,10 @@
 Changelog
 #########
 
+1.0.6
+=====
+- Make compatible with peewee 3.0
+
 1.0.5
 =====
 - Fixed issue with converting DecimalField.
