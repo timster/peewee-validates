@@ -1,2 +1,2 @@
-peewee>=2.8.2
+peewee>=2.8.2,<=3.1.0
 python-dateutil>=2.5.0

@@ -1,9 +1,13 @@
 Changelog
 #########
 
+1.0.7
+=====
+- Fix compatibility with Peewee 3
+
 1.0.6
 =====
-- Make compatible with peewee 3.0
+- Make compatible with Peewee 3
 
 1.0.5
 =====

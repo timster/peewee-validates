@@ -27,7 +27,7 @@ Requirements
 ============
 
 * python >= 3.3
-* peewee >= 2.8.2
+* peewee >= 2.8.2 (including Peewee 3)
 * python-dateutil >= 2.5.0
 
 Installation

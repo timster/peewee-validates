@@ -1,5 +1,10 @@
 import peewee
-from playhouse.fields import ManyToManyField
+try:
+    M2M_RELATED = 'related_name'
+    from playhouse.fields import ManyToManyField
+except ImportError:
+    M2M_RELATED = 'backref'
+    from peewee import ManyToManyField
 
 database = peewee.SqliteDatabase(':memory:')
 
@@ -67,7 +72,8 @@ class Student(peewee.Model):
 class Course(peewee.Model):
     name = peewee.CharField(max_length=10)
 
-    students = ManyToManyField(Student, related_name='courses')
+    params = {M2M_RELATED: 'courses'}
+    students = ManyToManyField(Student, **params)
 
     class Meta:
         database = database

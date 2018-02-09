@@ -15,13 +15,15 @@ try:
 except ImportError:
     from peewee import ManyToManyField
 
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 
 __all__ = [
     'Field', 'Validator', 'ModelValidator', 'ValidationError', 'StringField', 'FloatField',
     'IntegerField', 'DecimalField', 'DateField', 'TimeField', 'DateTimeField', 'BooleanField',
     'ModelChoiceField', 'ManyModelChoiceField',
 ]
+
+PEEWEE3 = peewee.__version__ >= '3.0.0'
 
 DEFAULT_MESSAGES = {
     'required': 'This field is required.',
@@ -852,7 +854,10 @@ class ModelValidator(Validator):
 
         self.instance = instance
         self.pk_field = self.instance._meta.primary_key
-        self.pk_value = self.instance._get_pk_value()
+        if PEEWEE3:
+            self.pk_value = self.instance.get_id()
+        else:
+            self.pk_value = self.instance._get_pk_value()
 
         super().__init__()
 
@@ -886,7 +891,14 @@ class ModelValidator(Validator):
         :param name: Peewee field instance.
         :return: Validator field.
         """
-        pwv_field = ModelValidator.FIELD_MAP.get(field.get_db_field(), StringField)
+        if PEEWEE3:
+            field_type = field.field_type.lower()
+        else:
+            field_type = field.db_field
+
+        pwv_field = ModelValidator.FIELD_MAP.get(field_type, StringField)
+
+        print('pwv_field', field_type, pwv_field)
 
         validators = []
         required = not bool(getattr(field, 'null', True))
@@ -899,19 +911,21 @@ class ModelValidator(Validator):
             validators.append(validate_required())
 
         if choices:
+            print('CHOICES', choices)
             validators.append(validate_one_of([c[0] for c in choices]))
 
         if max_length:
             validators.append(validate_length(high=max_length))
 
         if unique:
-            validators.append(validate_model_unique(
-                field, self.instance.select(), self.pk_field, self.pk_value))
+            validators.append(validate_model_unique(field, self.instance.select(), self.pk_field, self.pk_value))
 
         if isinstance(field, peewee.ForeignKeyField):
-            return ModelChoiceField(
-                field.rel_model, field.to_field,
-                default=default, validators=validators)
+            if PEEWEE3:
+                rel_field = field.rel_field
+            else:
+                rel_field = field.to_field
+            return ModelChoiceField(field.rel_model, rel_field, default=default, validators=validators)
 
         if isinstance(field, ManyToManyField):
             return ManyModelChoiceField(
@@ -944,8 +958,12 @@ class ModelValidator(Validator):
                 continue
             try:
                 data.setdefault(name, getattr(self.instance, name, None))
-            except (ValueError, peewee.DoesNotExist):
-                data.setdefault(name, self.instance._data.get(name, None))
+            except (peewee.DoesNotExist):
+                if PEEWEE3:
+                    instance_data = self.instance.__data__
+                else:
+                    instance_data = self.instance._data
+                data.setdefault(name, instance_data.get(name, None))
 
         # This will set self.data which we should use from now on.
         super().validate(data=data, only=only, exclude=exclude)
