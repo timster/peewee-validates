@@ -15,7 +15,7 @@ try:
 except ImportError:
     from peewee import ManyToManyField
 
-__version__ = '1.0.7'
+__version__ = '1.0.8'
 
 __all__ = [
     'Field', 'Validator', 'ModelValidator', 'ValidationError', 'StringField', 'FloatField',
