@@ -2,7 +2,8 @@ from setuptools import setup
 from codecs import open
 from os import path
 
-from peewee_validates import __version__
+# from peewee_validates import __version__  # the build requires preinstalled peewee and datautils
+__version__ = '1.0.8'
 
 root_dir = path.abspath(path.dirname(__file__))
 
