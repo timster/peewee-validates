@@ -898,8 +898,6 @@ class ModelValidator(Validator):
 
         pwv_field = ModelValidator.FIELD_MAP.get(field_type, StringField)
 
-        print('pwv_field', field_type, pwv_field)
-
         validators = []
         required = not bool(getattr(field, 'null', True))
         choices = getattr(field, 'choices', ())
@@ -911,7 +909,6 @@ class ModelValidator(Validator):
             validators.append(validate_required())
 
         if choices:
-            print('CHOICES', choices)
             validators.append(validate_one_of([c[0] for c in choices]))
 
         if max_length:
