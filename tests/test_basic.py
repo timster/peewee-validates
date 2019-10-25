@@ -84,6 +84,21 @@ def test_coerce_fails():
     assert validator.errors['int_field'] == DEFAULT_MESSAGES['coerce_int']
 
 
+def test_decimal():
+    class TestValidator(Validator):
+        low_field = DecimalField(low=-42.0)
+        high_field = DecimalField(high=42.0)
+        low_high_field = DecimalField(low=-42.0, high=42.0)
+
+    validator = TestValidator()
+    data = {'low_field': '-99.99', 'high_field': '99.99', 'low_high_field': '99.99'}
+    valid = validator.validate(data)
+    assert not valid
+    assert validator.errors['low_field'] == 'Must be at least -42.0.'
+    assert validator.errors['high_field'] == 'Must be between None and 42.0.'
+    assert validator.errors['low_high_field'] == 'Must be between -42.0 and 42.0.'
+
+
 def test_required_empty():
     class TestValidator(Validator):
         field1 = StringField(required=False, validators=[validate_not_empty()])
