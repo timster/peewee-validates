@@ -732,7 +732,7 @@ class Validator:
         self.initialize_fields()
 
     def add_error(self, name, error):
-        message = self._meta.messages.get('{}.{}'.format(name, error.key))
+        message = error.key if error.key else self._meta.messages.get("{}.{}".format(name, error.key))
         if not message:
             message = self._meta.messages.get(error.key)
         if not message:
